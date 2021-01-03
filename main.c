@@ -1,6 +1,6 @@
 /**############################################################################
  ** TITLE:		CipherSearch
- ** AUTHOR:		Magnus Overbo
+ ** AUTHOR:		Magnus Overbo // Adrian Evensen
  ** ABOUT:		Ciphersearch utilise the GMP library to manage arbitrary sized
  **						numbers and perform an unconstrained approximate row-based bit
  **						parallell search.  It searches for an intercepted bitsequence,
@@ -10,6 +10,7 @@
  **
  ** Release:	20190313 - 64b version
  ** Release:	20190328 - GMP library version for arbitrary bit size
+ ** Release:	20200101 - Add option for shift-OR implementation2
  **#########################################################################**/
 
 //-----------------------------------------------------------------------------
@@ -32,8 +33,9 @@ int m = 896; 				//Size of search word
 int n = 1738;				//Size of text
 int slen = 448;				//K value
 int deg	= 11;				//Polynomial degree
-int SSTATE = 32; 			
-int CSTATE = 1;
+int SSTATE = 32; 			//Initial state of R2
+int CLKSTATE = 300;			//Initial state of R1
+int CSTATE = 1;				//Current state holder
 mpz_t PLAINTEXT;			//Message to encipher
 mpz_t TEXT;					//Search text
 
@@ -114,7 +116,7 @@ int main(int argc, char *argv[]){
 		printf("Generating clocking LFSR R1: \n");
 	#endif
 	mpz_t LCLK;		mpz_init(LCLK);						//LFSR for dessimating
-	lfsrgen(LCLK, deg, m, pol, 300, 0, NULL);			//Clocking LFSR
+	lfsrgen(LCLK, deg, m, pol, CLKSTATE, 0, NULL);			//Clocking LFSR
 
 	#if defined DEBUG
 		printf("Generating clocked LFSR R2: \n");
