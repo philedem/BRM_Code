@@ -113,20 +113,26 @@ int main(int argc, char *argv[]){
 	mpz_t*	B	= genAlphabet( ALPHASIZE );				//Generate alphabet
 
 	#if defined DEBUG
-		printf("Generating clocking LFSR R1: \n");
+		printf("Generating clocking LFSR (R1) output sequence: \n");
 	#endif
 	mpz_t LCLK;		mpz_init(LCLK);						//LFSR for dessimating
 	lfsrgen(LCLK, deg, m, pol, CLKSTATE, 0, NULL);			//Clocking LFSR
 
 	#if defined DEBUG
-		printf("Generating clocked LFSR R2: \n");
+		printf("Generating clocked LFSR (R2) output sequence: \n");
 	#endif
 	mpz_t LDES;		mpz_init(LDES);						//LFSR to be dessimated
 	lfsrgen(LDES, deg, n, pol, SSTATE, 0, NULL);		//Dessimated LFSR
 
+	#if defined DEBUG
+		printf("Calculating the Decimated bitsequence and creating ciphertext:\n\n");
+	#endif
 	mpz_t CIPHER;	mpz_init( CIPHER );					//Gen intercepted ciphertext
 	genEncrypt(	CIPHER, LCLK, LDES );
 
+	#if defined DEBUG
+		printf("Generating prefixes\n");
+	#endif
 	genPrefixes( B, CIPHER);											//Gen prefixes for the alphabet
 
 	char* t = pb(pol,deg, 0);
@@ -134,24 +140,24 @@ int main(int argc, char *argv[]){
 	//Output generated data
 	#if defined DEBUG
 	printf( "Setup:" );
-	printf( "\n\tPOLY:\t\t%s", t);		mpz_out_str(stdout, 2, pol);
+	printf( "\n\tPOLYNOMIAL:\t%s", t);		mpz_out_str(stdout, 2, pol);
 	free(t);	t = pb(PLAINTEXT, m, 0);
 	printf( "\n\tPLAINTEXT:\t%s", t);	mpz_out_str(stdout, 2, PLAINTEXT);
 	free(t);	t = pb(LCLK, m, 0);
-	printf( "\n\tLFSR CLK:\t%s", t);	mpz_out_str(stdout, 2, LCLK);
+	printf( "\n\tLFSR CLK SEQ:\t%s", t);	mpz_out_str(stdout, 2, LCLK);
 	free(t);	t = pb(LDES, n, 0);
-	printf( "\n\tLFSR DES:\t%s", t);	mpz_out_str(stdout, 2, LDES);
+	printf( "\n\tLFSR DES SEQ:\t%s", t);	mpz_out_str(stdout, 2, LDES);
 	free(t);	t = pb(CIPHER,m, 0);
 	printf( "\n\tCIPHER:\t\t%s", t);	mpz_out_str(stdout, 2, CIPHER);
 	free(t);	t = pb(B[0], m, 0);
-	printf( "\nAlphabet:\tB[0]:\t%s", t); mpz_out_str(stdout, 2, B[0]);
+	printf( "\n\tB[0]:\t\t%s", t); mpz_out_str(stdout, 2, B[0]);
 	free(t);	t = pb(B[1], m, 0);
-	printf( "\n\t\tB[1]:\t%s", t);	mpz_out_str(stdout, 2, B[1]);
+	printf( "\n\tB[1]:\t\t%s", t);	mpz_out_str(stdout, 2, B[1]);
 	free(t);
 	printf( "\n\n" );
 	#endif
 
-	mpz_clear( LCLK );													//Cleanup LFSRs
+	mpz_clear( LCLK );							//Cleanup LFSRs
 	mpz_clear( LDES );
 
 	mpz_t tmp;		
@@ -164,20 +170,20 @@ int main(int argc, char *argv[]){
 	while( mpz_cmp_ui( max, i ) > 0 ){			// Iterate through all initial states
 		CSTATE = i;								// Current state
 		mpz_set_ui( tmp, i);					// For binary display
-		t = pb(tmp, deg, 0);
+		t = pb(tmp, deg, 0);					// Pad tmp with up to deg amount of 0's
 
 		#if defined DEBUG
 			printf("\nINITIAL STATE\t%"PRIu64"\t%s", i, t);
 			mpz_out_str( stdout, 2, tmp);		printf("\n");
 		#endif
 
-		lfsrgen( TEXT, deg, n, pol, i, 1, B );	// Undessimated bitseq iv=i
+		lfsrgen( TEXT, deg, n, pol, i, 1, B );	// Generate undecimated bitseq TEXT for current initial state
 		#if defined DEBUG
-			free(t); t = pb(TEXT,n,0);
-			printf( "TEXT:\t\t%s", t );	mpz_out_str(stdout, 2, TEXT);
+			//free(t); t = pb(TEXT,n,0);
+			//printf( "TEXT:\t\t%s", t );	mpz_out_str(stdout, 2, TEXT);
 			free(t); t = pb(CIPHER,m,0);
-			printf( "\nCIPHER:\t\t%s", t); mpz_out_str(stdout, 2, CIPHER);
-			printf( "\n" );
+			printf( "\tCIPHER:\t\t%s", t); mpz_out_str(stdout, 2, CIPHER);
+			printf( "\n\n" );
 		#endif
 
 		#if defined DEBUG
@@ -248,8 +254,8 @@ int main(int argc, char *argv[]){
  **
  **#########################################################################**/
 /*-----------------------------------------------------------------------------
- * Prepend zeros to a binary representation of a number.
- *	returns a char pointer to an array filled with missing zeros 
+ * Prepend bits to a binary representation of a number.
+ *	returns a char pointer to an array filled with missing bits 
  * or nothing if it is already full.
 -----------------------------------------------------------------------------*/
 char* pb( mpz_t num, int len, int b ){
@@ -265,9 +271,6 @@ char* pb( mpz_t num, int len, int b ){
 		else{
 			pre[i++] = '0';
 		}
-		//pre[i++] = '1';
-		//#else		
-		//#endif
 	}
 	pre[i]='\0';
 	return pre;
@@ -304,9 +307,7 @@ void genEncrypt(mpz_t rop, mpz_t CLK, mpz_t DES){
 	int x, y;
 	mpz_t CIPHER; mpz_init(CIPHER);
 
-	#if defined DEBUG
-		printf("Calculating the Decimated bitsequence and creating ciphertext:\n\n");
-	#endif
+
 
 	while( i < m ){						//Counter for clocking lfsr 
 		x = 0;		
@@ -418,7 +419,7 @@ void lfsrgen(mpz_t rop, int psize, int olen, mpz_t p,
 	int i;											//Counter var
 	int initmatch = 0;								//Check if first prefix is found
 	struct LFSR lfsr;								//Create struct variable
-
+	char* t;
 
 	lfsr.DEGREE = psize;							//Set polynomial degree
 
@@ -429,21 +430,19 @@ void lfsrgen(mpz_t rop, int psize, int olen, mpz_t p,
 	mpz_set_ui(lfsr.STATE, iv);						//Set initial vector (seed)
 	
 	#if defined DEBUG
-		printf("\n\tSTT:\t"); mpz_out_str( stdout, 2, lfsr.STATE );
+		t = pb(lfsr.STATE, psize, 0);
+		printf("\n\tINIT STT:\t%s",t); mpz_out_str( stdout, 2, lfsr.STATE );
 		printf("\n");
+		free(t);
 	#endif
 	
 	mpz_t OUTPUT;
 	mpz_init( OUTPUT );
 	int	tmpOUT	= 0;								//temp char holder
-	char* t;
 	i = 0;											//Zero out counter
-	while( i < olen ){
+	while( i < olen ){								//Iterate the LFSR for the set output length
 		tmpOUT = lfsr_iterate(&lfsr);
-
-		if( initmatch == 0 && skip == 1) {			// Iterate until output is a 1
-			//printf("\t\t\tX: "); mpz_out_str(stdout, 2, B[tmpOUT]);
-			//printf("\n"); 
+		if( initmatch == 0 && skip == 1) {			// Iterate until we match the first bit of the sequence
 
 			#if defined SHIFTOR
 			if( mpz_tstbit(B[tmpOUT], 0) == 0 ) {
@@ -490,13 +489,15 @@ void lfsrgen(mpz_t rop, int psize, int olen, mpz_t p,
 
 	//Print LFSR information
 	#if defined DEBUG
-	printf("\tDEGREE:\t%d\n", psize);
-	printf("\tLENGTH:\t%d\n", olen);
-	printf("\tPOL:\t"); mpz_out_str( stdout, 2, lfsr.POLYNOMIAL );
-	printf("\n\tSTT:\t"); mpz_out_str( stdout, 2, lfsr.STATE );
-	printf("\n\tSEQ:\t"); mpz_out_str( stdout, 2, OUTPUT);
-	printf("\n");
-	printf("\tDone\n\n");
+	printf("\tDEGREE:\t\t%d\n", psize);
+	printf("\tLENGTH:\t\t%d\n", olen);
+	printf("\tPOLYNOMIAL:\t"); mpz_out_str( stdout, 2, lfsr.POLYNOMIAL );
+	t = pb(lfsr.STATE, psize, 0);
+	printf("\n\tFINAL STT:\t%s", t); mpz_out_str( stdout, 2, lfsr.STATE );
+	free(t); t = pb(OUTPUT, olen, 0);
+	printf("\n\tSEQUENCE:\t%s", t); mpz_out_str( stdout, 2, OUTPUT);
+	free(t);
+	printf("\n\n");
 	#endif
 	mpz_set(rop, OUTPUT);
 	mpz_clear(OUTPUT);
@@ -509,9 +510,6 @@ void lfsrgen(mpz_t rop, int psize, int olen, mpz_t p,
 -----------------------------------------------------------------------------*/
 void genPrefixes( mpz_t* B, mpz_t P ){
 	int	 j = 0;
-	#if defined DEBUG
-		printf("Generating prefixes\n");
-	#endif
 
 	mpz_t tmp;  
 	mpz_init(tmp); 
@@ -525,27 +523,17 @@ void genPrefixes( mpz_t* B, mpz_t P ){
 			mpz_out_str(stdout, 2, B[ci]);
 		#endif
 
-		//printf("\nPre: ");
-		//mpz_out_str(stdout, 2, B[ci]);
-		//printf("\nPre tmp: ");
-		//mpz_out_str(stdout, 2, tmp);
-
 		mpz_ior( B[ci], B[ci], tmp );			//current value or-ed with 10^(j-1)
 		mpz_lshift( tmp, m );
-
-		//printf("\nPost tmp: ");
-		//mpz_out_str(stdout, 2, tmp);
-		//printf("\nPost: ");
-		//mpz_out_str(stdout, 2, B[ci]);
-
 
 		#if defined DEBUG
 			printf( "\n\t\t\t%s", pb(B[ci],m,0));
 			mpz_out_str( stdout, 2, B[ci]);		printf( "\n" );
 		#endif
 
-		j++;															//Next pattern character
+		j++;									//Next pattern character
 	}
+
 	// Invert prefixes for Shift-OR mode
 	#if defined SHIFTOR
 		int i = 0;
@@ -560,9 +548,7 @@ void genPrefixes( mpz_t* B, mpz_t P ){
 	#endif
 
 	mpz_clear( tmp );
-	#if defined DEBUG
-	printf("\n\tDone\n\n");
-	#endif
+
 }
 
 
@@ -601,9 +587,6 @@ mpz_t* genError(int K) {
 		k++;
 	}
 
-	#if defined DEBUG
-		printf("\tDone\n");
-	#endif
 	return R;
 }
 
@@ -628,11 +611,13 @@ mpz_t* arbp_search(mpz_t* B, int K) {
 	char* b;
 
 	#if defined DEBUG
-		printf( "Beginning search\n");					//Debug
+		printf( "\nBeginning search\n");					//Debug
 	#endif
+
 	uint_least64_t pos	= 0;							//Start search from char 1
 
-	while( pos < n ){									//Search entire string
+	while( pos < n ){									//Search entire TEXT
+		printf("-------------- %llu\n", pos);
 		int Ti	= mpz_tstbit( TEXT, pos );				//Grab current chars int value
 
 		mpz_clear( oldR );	mpz_init( oldR );			//Reset variables
@@ -646,16 +631,19 @@ mpz_t* arbp_search(mpz_t* B, int K) {
 			mpz_ior( tmp1, tmp1, B[Ti] );				//OR with B[Ti]
 		#else
 			mpz_lshift( tmp1, m );						//lshift
+			b = pb(tmp1,m,0); printf("LSHFT: \t%s", b); mpz_out_str(stdout, 2, tmp1);
 			mpz_setbit( tmp1, 0 );						//OR with 1
+			b = pb(tmp1,m,0); printf("\nORW1: \t%s", b); mpz_out_str(stdout, 2, tmp1);
 			mpz_and( tmp1, tmp1, B[Ti] );				//AND with B[Ti]
+			b = pb(tmp1,m,0); printf("\nANDWB: \t%s", b); mpz_out_str(stdout, 2, tmp1);
 		#endif
 
 
 		#if defined DEBUG
 		b = pb(B[Ti],m,0);
-		printf("B[%d]: %s", Ti, b);
+		printf("\n\nB[%d]: %s", Ti, b);
 		mpz_out_str(stdout, 2, B[Ti]);
-		printf("\n-------------- %llu\n", pos);
+		
 		#endif
 
 		mpz_set( newR, tmp1 );							//Set newR to tmp
@@ -668,13 +656,14 @@ mpz_t* arbp_search(mpz_t* B, int K) {
 		else{
 			t = pb(R[0],m,0);
 		}
-		printf("R[0]: %s", t);
+		printf("\nR[0]: %s", t);
 		mpz_out_str(stdout, 2, R[0]);
 		printf("\n");
 		#else
 		t = pb(R[0],m,0);
-		printf("R[0]: %s", t);
+		printf("\nR[0]: %s", t);
 		mpz_out_str(stdout, 2, R[0]);
+		if( mpz_tstbit(R[0], m-1) == 1 ) printf(" [!]"); // Print indicator if match
 		printf("\n");
 		#endif
 
@@ -755,10 +744,10 @@ mpz_t* arbp_search(mpz_t* B, int K) {
 			// if( mpz_tstbit(newR, m-1) == 0 ) printf(" [!]");
 
 			// #else
-			// t = pb(R[i],m,0);
-			// printf("R[%llu]: %s", i, t );
-			// mpz_out_str(stdout, 2, R[i]);
-			// if( mpz_tstbit(newR, m-1) == 0 ) printf(" [!]");
+			t = pb(R[i],m,0);
+			printf("R[%llu]: %s", i, t );
+			mpz_out_str(stdout, 2, R[i]);
+			if( mpz_tstbit(newR, m-1) == 1 ) printf(" [!]"); // Print indicator if match
 			// #endif	
 
 
