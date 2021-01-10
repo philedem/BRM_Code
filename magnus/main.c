@@ -32,7 +32,7 @@ int m = 896; 		//Size of search word
 int n = 1738;		//Size of text
 int slen = 448;		//K value
 int deg	= 11;		//Polynomial degree
-int SSTATE = 32;
+int SSTATE = 1024;
 int CSTATE = 1;
 mpz_t PLAINTEXT;	//Message to encipher
 mpz_t TEXT;		//Search text
@@ -567,7 +567,7 @@ mpz_t* arbp_search(mpz_t* B, int K) {
 			mpz_lshift(tmp2, m);							//tmp2 = <tmp2> << 1
 			mpz_setbit( tmp2, 0 );						//tmp2 = <tmp2> | 1
 			
-			#if defined INC_INSERT
+			#if !defined INC_INSERT
 																		//Insertion
 			mpz_ior(tmp2, oldR, tmp2);				//tmp2 = oldR | <tmp2>
 			#endif

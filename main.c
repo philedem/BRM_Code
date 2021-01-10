@@ -1,6 +1,6 @@
 /**############################################################################
  ** TITLE:		CipherSearch
- ** AUTHOR:		Magnus Overbo // Adrian Evensen
+ ** AUTHOR:		Magnus Overbo
  ** ABOUT:		Ciphersearch utilise the GMP library to manage arbitrary sized
  **						numbers and perform an unconstrained approximate row-based bit
  **						parallell search.  It searches for an intercepted bitsequence,
@@ -10,7 +10,7 @@
  **
  ** Release:	20190313 - 64b version
  ** Release:	20190328 - GMP library version for arbitrary bit size
- ** Release:	20200101 - Add option for shift-OR implementation2
+ ** Release:	20200101 - Add option for shift-OR implementation (default)
  **#########################################################################**/
 
 //-----------------------------------------------------------------------------
@@ -59,7 +59,7 @@ mpz_t* genError(int);  						   	//Gen init error table
 void genPrefixes( mpz_t*, mpz_t );				//Generate the prefixes
 void genEncrypt( mpz_t, mpz_t, mpz_t );	        //Encrypt the plaintext
 void mpz_lshift( mpz_t, int );					//Left shift bin seq by 1
-char* pb( mpz_t, int, int );						   	//Print prepending zeros
+char* pb( mpz_t, int, int );					//Print prepending zeros
 
 //-----------------------------------------------------------------------------
 //	MAIN FUNCTION
@@ -90,6 +90,8 @@ int main(int argc, char *argv[]){
 
 	mpz_t pol;		
 	mpz_init( pol );
+
+	char* t = pb(pol,deg, 0);				//Char array for padding bits
 	
 	if( deg == 11 ){						//Set polynomial based on degree
 		mpz_set_ui(pol, 1209);				//2^11 irreducible polynomial
@@ -118,6 +120,22 @@ int main(int argc, char *argv[]){
 	mpz_t LCLK;		mpz_init(LCLK);						//LFSR for dessimating
 	lfsrgen(LCLK, deg, m, pol, CLKSTATE, 0, NULL);			//Clocking LFSR
 
+	#if defined CLKIT
+		printf("Generating all possible CLK sequences\n");
+		int x = 0;
+		mpz_t CLKGEN; mpz_init(CLKGEN);
+		uint_least64_t y = 1;
+		while ( mpz_cmp_ui( max, y ) > 0 ) {
+			lfsrgen(CLKGEN, deg, m, pol, y, 0, NULL);
+			t = pb(CLKGEN, m, 0);
+			printf( "\n%"PRIu64"\t%s", y, t);	
+			mpz_out_str(stdout, 2, CLKGEN);
+			free(t);
+			y++;
+		}
+		
+	#endif
+
 	#if defined DEBUG
 		printf("Generating clocked LFSR (R2) output sequence: \n");
 	#endif
@@ -135,7 +153,6 @@ int main(int argc, char *argv[]){
 	#endif
 	genPrefixes( B, CIPHER);											//Gen prefixes for the alphabet
 
-	char* t = pb(pol,deg, 0);
 
 	//Output generated data
 	#if defined DEBUG
@@ -144,11 +161,11 @@ int main(int argc, char *argv[]){
 	free(t);	t = pb(PLAINTEXT, m, 0);
 	printf( "\n\tPLAINTEXT:\t%s", t);	mpz_out_str(stdout, 2, PLAINTEXT);
 	free(t);	t = pb(LCLK, m, 0);
-	printf( "\n\tLFSR CLK SEQ:\t%s", t);	mpz_out_str(stdout, 2, LCLK);
+	printf( "\n\tLFSR R1 SEQ:\t%s", t);	mpz_out_str(stdout, 2, LCLK);
 	free(t);	t = pb(LDES, n, 0);
-	printf( "\n\tLFSR DES SEQ:\t%s", t);	mpz_out_str(stdout, 2, LDES);
+	printf( "\n\tLFSR R2 SEQ:\t%s", t);	mpz_out_str(stdout, 2, LDES);
 	free(t);	t = pb(CIPHER,m, 0);
-	printf( "\n\tCIPHER:\t\t%s", t);	mpz_out_str(stdout, 2, CIPHER);
+	printf( "\n\tCIPHERTEXT:\t%s", t);	mpz_out_str(stdout, 2, CIPHER);
 	free(t);	t = pb(B[0], m, 0);
 	printf( "\n\tB[0]:\t\t%s", t); mpz_out_str(stdout, 2, B[0]);
 	free(t);	t = pb(B[1], m, 0);
@@ -305,8 +322,8 @@ void genEncrypt(mpz_t rop, mpz_t CLK, mpz_t DES){
 	int i =	0;
 	int	j = 0;
 	int x, y;
+	char* t;
 	mpz_t CIPHER; mpz_init(CIPHER);
-
 
 
 	while( i < m ){						//Counter for clocking lfsr 
@@ -341,7 +358,9 @@ void genEncrypt(mpz_t rop, mpz_t CLK, mpz_t DES){
 	}
 	#if defined DEBUG
 		printf("\n");
-		printf("\tCIPHERTEXT: "); mpz_out_str(stdout, 2, CIPHER);
+		t = pb(CIPHER, m, 0);
+		printf("\tCIPHERTEXT: %s", t); mpz_out_str(stdout, 2, CIPHER);
+		free(t);
 		printf("\n\n");
 	#endif
 	mpz_set(rop, CIPHER);								//Set var to generated cipher
@@ -599,6 +618,8 @@ mpz_t* arbp_search(mpz_t* B, int K) {
 	mpz_init( tmp1 );									//Tmp variables
 	mpz_t tmp2;		
 	mpz_init( tmp2 );
+	mpz_t tmp3;		
+	mpz_init( tmp3 );
 														//Match for each position in text
 	mpz_t* R = genError( K );							//Gen error-table
 	mpz_t* MATCHES = malloc( n * sizeof(mpz_t) );
@@ -617,7 +638,11 @@ mpz_t* arbp_search(mpz_t* B, int K) {
 	uint_least64_t pos	= 0;							//Start search from char 1
 
 	while( pos < n ){									//Search entire TEXT
-		printf("-------------- %llu\n", pos);
+		
+		#if defined DEBUG
+			printf("-------------- %llu", pos);
+		#endif
+
 		int Ti	= mpz_tstbit( TEXT, pos );				//Grab current chars int value
 
 		mpz_clear( oldR );	mpz_init( oldR );			//Reset variables
@@ -628,128 +653,117 @@ mpz_t* arbp_search(mpz_t* B, int K) {
 
 		#if defined SHIFTOR
 			mpz_lshift( tmp1, m );						//lshift
+			//b = pb(tmp1,m,0); printf("\nLSHFT: \t%s", b); mpz_out_str(stdout, 2, tmp1);
 			mpz_ior( tmp1, tmp1, B[Ti] );				//OR with B[Ti]
+			//b = pb(tmp1,m,0); printf("\nORWB: \t%s", b); mpz_out_str(stdout, 2, tmp1);
+
 		#else
 			mpz_lshift( tmp1, m );						//lshift
-			b = pb(tmp1,m,0); printf("LSHFT: \t%s", b); mpz_out_str(stdout, 2, tmp1);
+			//b = pb(tmp1,m,0); printf("\nLSHFT: \t%s", b); mpz_out_str(stdout, 2, tmp1);
 			mpz_setbit( tmp1, 0 );						//OR with 1
-			b = pb(tmp1,m,0); printf("\nORW1: \t%s", b); mpz_out_str(stdout, 2, tmp1);
+			//b = pb(tmp1,m,0); printf("\nORW1: \t%s", b); mpz_out_str(stdout, 2, tmp1);
 			mpz_and( tmp1, tmp1, B[Ti] );				//AND with B[Ti]
-			b = pb(tmp1,m,0); printf("\nANDWB: \t%s", b); mpz_out_str(stdout, 2, tmp1);
+			//b = pb(tmp1,m,0); printf("\nANDWB: \t%s", b); mpz_out_str(stdout, 2, tmp1);
 		#endif
 
 
 		#if defined DEBUG
-		b = pb(B[Ti],m,0);
-		printf("\n\nB[%d]: %s", Ti, b);
-		mpz_out_str(stdout, 2, B[Ti]);
-		
+			b = pb(B[Ti],m,0);
+			printf("\n\nB[%d]: %s", Ti, b);
+			mpz_out_str(stdout, 2, B[Ti]);		
 		#endif
 
 		mpz_set( newR, tmp1 );							//Set newR to tmp
 		mpz_set(R[0], newR);							//Set R[0] to R'[i]
 
 		#if defined (DEBUG) && defined (SHIFTOR)
-		if(mpz_tstbit(R[0], m-1) > 0){ 
-			t = pb(R[0],m,1);
-		}
-		else{
+			if(mpz_tstbit(R[0], m-1) > 0){ 
+				t = pb(R[0],m,1);
+			}
+			else{
+				t = pb(R[0],m,0);
+			}
+			printf("\nR[0]: %s", t);
+			mpz_out_str(stdout, 2, R[0]);
+			if( mpz_tstbit(R[0], m-1) == 0 ) printf(" [!]"); // Print indicator if match
+			printf("\n");
+		#elif defined DEBUG
 			t = pb(R[0],m,0);
-		}
-		printf("\nR[0]: %s", t);
-		mpz_out_str(stdout, 2, R[0]);
-		printf("\n");
-		#else
-		t = pb(R[0],m,0);
-		printf("\nR[0]: %s", t);
-		mpz_out_str(stdout, 2, R[0]);
-		if( mpz_tstbit(R[0], m-1) == 1 ) printf(" [!]"); // Print indicator if match
-		printf("\n");
+			printf("\nR[0]: %s", t);
+			mpz_out_str(stdout, 2, R[0]);
+			if( mpz_tstbit(R[0], m-1) == 1 ) printf(" [!]"); // Print indicator if match
+			printf("\n");
 		#endif
 
 
 		uint_least64_t i	= 1;						//Calc matches with K allowed errors
 		while( i < K ) {
-			mpz_clear( tmp1 );	mpz_clear(tmp2);
-			mpz_init(tmp1);			mpz_init(tmp2);		//reset and initialise temp variables
+			mpz_clear( tmp1 );mpz_clear(tmp2); mpz_clear(tmp3);
+			mpz_init(tmp1);	mpz_init(tmp2);	mpz_init(tmp3);	//reset and initialise temp variables
 
 														//Substitute and deletion
 			#if defined SHIFTOR
-			mpz_and(tmp2, oldR, newR);					//tmp2 = (oldR|newR)
+				mpz_set(tmp3, oldR);						//tmp3 = oldR
+				mpz_lshift(tmp3, m);						//tmp3 = <tmp3> << 1
+				mpz_ior(tmp2, tmp3, B[Ti]);
+
+				mpz_and(tmp2, tmp2, tmp3);
+
+				#if defined INC_INSERT						//Insertion
+					mpz_and(tmp2, oldR, tmp2);					//tmp2 = oldR | <tmp2>
+				#endif
+
+				mpz_set(tmp1, R[i]);						//Copy value
+				mpz_lshift(tmp1, m);						//tmp1 = R[i]<<1
+				mpz_ior(tmp1, tmp1, B[Ti]);					//tmp1 = <tmp1> & B[Ti]
+
+				mpz_and(tmp1, tmp1, tmp2);					//tmp1 = <tmp1> | <tmp2>
+
+				mpz_set(newR, tmp1);						//newR = <tmp1>
+				mpz_set(oldR, R[i]);						//Store R[i] for next error
+				mpz_set(R[i], newR);						//R[i] == R'[i]
+
 			#else
-			mpz_ior(tmp2, oldR, newR);					//tmp2 = (oldR|newR)
-			#endif
-			// 11 16 2 (32)
-			// oldR 11111111 00000000
-			// newR 11111110 00000001
-			// tmp2 11111110 00000001
+				mpz_ior(tmp2, oldR, newR);					//tmp2 = (oldR|newR)
+				mpz_lshift(tmp2, m);						//tmp2 = <tmp2> << 1
+				mpz_setbit( tmp2, 0 );
 
-			// oldR 11111110 00000001
-			// newR 11111100 00000011
-			// tmp2 11111100 00000011
+				#if defined INC_INSERT						//Insertion
+					mpz_ior(tmp2, oldR, tmp2);					//tmp2 = oldR | <tmp2>
+				#endif
 
-			mpz_lshift(tmp2, m);						//tmp2 = <tmp2> << 1
+				mpz_set(tmp1, R[i]);						//Copy value
+				mpz_lshift(tmp1, m);						//tmp1 = R[i]<<1
+				mpz_and(tmp1, tmp1, B[Ti]);					//tmp1 = <tmp1> & B[Ti]
 
-			#if defined SHIFTOR
-			mpz_clrbit( tmp2, 0 );						//tmp2 = <tmp2> | 1
-			#else
-			mpz_setbit( tmp2, 0 );
-			#endif
-			// tmp2 11111100 00000011
+				mpz_ior(tmp1, tmp1, tmp2);					//tmp1 = <tmp1> | <tmp2>
 
-			// tmp2 11111000 00000111
-
-			#if defined INC_INSERT						//Insertion
-			mpz_ior(tmp2, oldR, tmp2);					//tmp2 = oldR | <tmp2>
+				mpz_set(newR, tmp1);						//newR = <tmp1>
+				mpz_set(oldR, R[i]);						//Store R[i] for next error
+				mpz_set(R[i], newR);						//R[i] == R'[i]
 			#endif
 
-			mpz_set(tmp1, R[i]);						//Copy value
-			mpz_lshift(tmp1, m);						//tmp1 = R[i]<<1
-			mpz_and(tmp1, tmp1, B[Ti]);					//tmp1 = <tmp1> & B[Ti]
-			// R[1] 11111110 00000001
-			// <<	11111100 00000010
-			// B[Ti]00010000 11101111
-			// tmp1	00010000 00000010  
 
-			// R[2] 11111100 00000011
-			// <<	11111000 00000111
-			// B[Ti]00010000 11101111
-			// tmp1 00010000 00000111
-			mpz_ior(tmp1, tmp1, tmp2);					//tmp1 = <tmp1> | <tmp2>
-
-			// tmp2 11111100 00000011
-			// tmp1 00010000 00000010
-			// tmp1 11111100 00000011
-			// R[1] 11111100 00000011
-
-			// tmp2 11111000 00000111
-			// tmp1 00010000 00000111
-			// tmp1 11111000 00000111
-			// R[2] 11111000 00000111
-
-			mpz_set(newR, tmp1);						//newR = <tmp1>
-			mpz_set(oldR, R[i]);						//Store R[i] for next error
-			mpz_set(R[i], newR);						//R[i] == R'[i]
 			
-			// #if defined (DEBUG) && defined (SHIFTOR)
-			// if(mpz_tstbit(R[0], m-1) > 0){ 
-			// 	t = pb(R[0],m,1);
-			// }
-			// else{
-			// 	t = pb(R[0],m,0);
-			// }
-			// t = pb(R[i],m,1);
-			// printf("R[%llu]: %s", i, t );
-			// mpz_out_str(stdout, 2, R[i]);
-			// if( mpz_tstbit(newR, m-1) == 0 ) printf(" [!]");
+			#if defined (DEBUG) && defined (SHIFTOR)
+				if(mpz_tstbit(R[i], m-1) > 0){ 
+					t = pb(R[i],m,1);
+				}
+				else{
+					t = pb(R[i],m,0);
+				}
+				//t = pb(R[i],m,1);
+				printf("R[%llu]: %s", i, t );
+				mpz_out_str(stdout, 2, R[i]);
+				if( mpz_tstbit(newR, m-1) == 0 ) printf(" [!]");
 
-			// #else
-			t = pb(R[i],m,0);
-			printf("R[%llu]: %s", i, t );
-			mpz_out_str(stdout, 2, R[i]);
-			if( mpz_tstbit(newR, m-1) == 1 ) printf(" [!]"); // Print indicator if match
-			// #endif	
-
+			#elif defined DEBUG
+				t = pb(R[i],m,0);
+				printf("R[%llu]: %s", i, t );
+				mpz_out_str(stdout, 2, R[i]);
+				if( mpz_tstbit(newR, m-1) == 1 ) printf(" [!]"); // Print indicator if match
+				
+			#endif
 
 			printf("\n");	
 			i++;										//Next error

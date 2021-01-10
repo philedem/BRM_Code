@@ -1,15 +1,18 @@
 
 main: clean
-	gcc -DINC_INSERT -o main main.c -lgmp
+	gcc -DSHIFTOR -DINC_INSERT -o main main.c -lgmp
 
 no_insert: clean
-	gcc -o main main.c -lgmp
+	gcc -DSHIFTOR -DDEBUG -o main main.c -lgmp
 
 debug: clean
-	gcc -DDEBUG -o main main.c -lgmp
+	gcc -DSHIFTOR -DDEBUG -DINC_INSERT -o main main.c -lgmp
 
-shiftor: clean
-	gcc -DSHIFTOR -DDEBUG -o main_or main.c -lgmp
+shiftand: clean
+	gcc -DDEBUG -o main_or main.c -lgmp
+
+clkit: clean
+	gcc -DCLKIT -DSHIFTOR -DINC_INSERT -o main main.c -lgmp
 
 clean:
 	rm -f main *.lib
