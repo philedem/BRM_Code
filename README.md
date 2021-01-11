@@ -2,7 +2,7 @@
 Master thesis NTNU
 
 # Dependencies 
--NIL-
+GMPLib
 
 # Compilation examples
-make debug && ./main 11 8 2 test > log.and | less
+make debug && ./main 11 8 2 test > log | less
