@@ -65,8 +65,8 @@ char* pb( mpz_t, int, int );					//Print prepending zeros
 //	MAIN FUNCTION
 //-----------------------------------------------------------------------------
 int main(int argc, char *argv[]){
-	if( argc != 5 ){	      				//Check required input parameters
-		printf("Too few arguments\n");
+	if( argc != 6 ){	      				//Check required input parameters
+		printf("Too few arguments\nUsage: ./main <polynomial> <search word length> <errors> <init state>\n");
 		return 0;
 	}
 
@@ -74,6 +74,7 @@ int main(int argc, char *argv[]){
 	m		= atoi( argv[2] );				//Search word length
 	slen= atoi( argv[3] ) + 1 ;				//Allowed errors
 	n		= 2*m;							//Search text length 2m
+	SSTATE = atoi( argv[4] );				//Set initial state
 
 	//printf("0: %s\n", argv[0]);				//Debug
 	printf("Degree:\t%d\n", deg);
@@ -82,7 +83,9 @@ int main(int argc, char *argv[]){
 	printf("Allowed errors:\t%d + 1\n\n", slen-1);
 
 	FNAME = malloc(60*sizeof(char));		//Filename allocation
-	sprintf(FNAME, "ciphersearch_L%dM%dK%d_%s.log", deg, m, slen-1, argv[4]);
+	sprintf(FNAME, "ciphersearch_L%dM%dK%d_%s.log", deg, m, slen-1, argv[5]);
+
+
 
 	mpz_t max;		
 	mpz_init( max );
@@ -181,6 +184,9 @@ int main(int argc, char *argv[]){
 	mpz_init( tmp );							// Geneate tmp variable
 	
 	uint_least64_t i = 1;						// initial state counter.
+	uint_least64_t ci = 0;						// Candidate indicator.
+	uint_least64_t ct = 0;						// Total candidate counter.
+	int found = 0;
 	FILE* fh = fopen(FNAME, "w");				// Open output file for writing
 
 	//While i less than 2^deg
@@ -214,43 +220,57 @@ int main(int argc, char *argv[]){
 		#if defined DEBUG
 			printf( "INITSTATE\t%"PRIu64"\n", i);
 			printf("\nMATCH\t" );
-			fprintf( fh, "INITSTATE\t%"PRIu64"\t%s", i, t );
-			mpz_out_str(fh, 2, tmp);
-			fprintf( fh, "\nMATCH\t" );
-		#else
-		if( CSTATE == SSTATE ){
-			printf( "INITSTATE\t%"PRIu64"\n", i);
-			fprintf( fh, "INITSTATE\t%"PRIu64"\t%s", i, t );
-			mpz_out_str(fh, 2, tmp);
-			fprintf( fh, "\nMATCH\t" );
-		}
+
 		#endif
+		fprintf( fh, "INITSTATE\t%"PRIu64"\t\t%s", i, t );
+		mpz_out_str(fh, 2, tmp);
+		fprintf( fh, "\nMATCH\t" );
+
+		//#else
+		// if( CSTATE == SSTATE ){
+		// 	printf( "INITSTATE\t%"PRIu64"\n", i);
+		// 	fprintf( fh, "INITSTATE\t%"PRIu64"\t%s", i, t );
+		// 	mpz_out_str(fh, 2, tmp);
+		// 	fprintf( fh, "\nMATCH\t" );
+		// }
+		// #endif
 		free( t );
 
-		#if !defined DEBUG
-		if( CSTATE == SSTATE ){
-		#endif
+		// #if !defined DEBUG
+		// if( CSTATE == SSTATE ){
+		// #endif
 			int j = 0;
 			int k = 0;
 			while( j<n ){											//For each position
 				if( mpz_cmp_ui(MATCH[j], m) < 0){					//If match is less than m
-					if( k > 0 && (k%15)==0 ){						//Decoration of stdout
-						printf("\n\t");
-					}
-					printf( "\t%d:", j); mpz_out_str(stdout, 10, MATCH[j] );
+					// if( k > 0 && (k%15)==0 ){						//Decoration of stdout
+					// 	printf("\n\t");
+						
+					// }
+					// printf( "\t%d:", j); mpz_out_str(stdout, 10, MATCH[j] );
 					fprintf( fh, " %d:", j);	mpz_out_str( fh, 10, MATCH[j] );
-					mpz_clear( MATCH[j] );
-					k++;											//increment counter for print
+					mpz_clear( MATCH[j]);
+					k++;
+					ci++;
+																	//increment counter for print
 				}
 				j++;												//Next position
 			}
+			if (ci > 0) {											//Increment candidate counter
+				if ( CSTATE == SSTATE ) {							//Indicate that actual init state was added as candidate.
+					found = 1;	
+				}
+				ct++;
+				ci = 0;
+			}
+
+			// printf( "\n\n" );
 			fprintf( fh, "\n");
-			printf( "\n\n" );
 			fprintf( fh, "\n" );
 			fflush( fh );
-		#if !defined DEBUG
-		}
-		#endif
+		// #if !defined DEBUG
+		// }
+		// #endif
 		i++;														//Next initial state
 		free(MATCH);
 	}
@@ -262,6 +282,13 @@ int main(int argc, char *argv[]){
 	free( B );																			//Free up memory
 	fclose( fh );																		//Close data file
 	printf("\n\nSoftware done\n");
+	printf("\nFound %"PRIu64" candidates\n", ct);
+	if (found==1) { 												// Determine if the actual initial state was included in the chosen set
+		printf("The actual initial state (%i) is within the set", SSTATE);
+	} 
+	else {
+		printf("The actual initial state (%i) is NOT within the set", SSTATE);
+	}
 	return 0;
 }
 
@@ -769,9 +796,9 @@ mpz_t* arbp_search(mpz_t* B, int K) {
 			i++;										//Next error
 		}
 
-		#if !defined DEBUG
-		if( CSTATE == SSTATE ){
-		#endif
+		// #if !defined DEBUG
+		// if( CSTATE == SSTATE ){
+		// #endif
 			mpz_init( MATCHES[pos] );
 			mpz_set_ui( MATCHES[pos], m );				//Init val of match at cur pos
 			int j	= 0;								//Init counter
@@ -793,9 +820,9 @@ mpz_t* arbp_search(mpz_t* B, int K) {
 					j++;														//Next error value
 				}
 			}
-		#if !defined DEBUG
-		}
-		#endif
+		// #if !defined DEBUG
+		// }
+		// #endif
 		printf("\n");
 		pos += 1;															//Next position in search text
 	}
@@ -807,10 +834,10 @@ mpz_t* arbp_search(mpz_t* B, int K) {
 	mpz_clear( newR );
 	free(R);
 
-	#if defined DEBUG
+	//#if defined DEBUG
 		return MATCHES;
-	#else
-		if( CSTATE == SSTATE )	return MATCHES;
-		else return NULL;
-	#endif
+	//#else
+	//	if( CSTATE == SSTATE )	return MATCHES;
+	//	else return NULL;
+	//#endif
 }
