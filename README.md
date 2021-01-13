@@ -2,7 +2,11 @@
 Master thesis NTNU
 
 # Dependencies 
--NIL-
+GMPLib
 
-# Compilation examples
-make debug && ./main 11 8 2 test > log.and | less
+# Compilation and usage
+make
+./main <polynomial degree> <output length> <errors allowed> <initial state> <output file suffix>
+
+# Example
+make && ./main 11 8 2 1024 
