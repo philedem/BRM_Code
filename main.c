@@ -17,6 +17,7 @@
 // INCLUDES
 //-----------------------------------------------------------------------------
 #include <stdio.h>
+#include <time.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>     //strlen
@@ -66,9 +67,11 @@ char* pb( mpz_t, int, int );					//Print prepending zeros
 //-----------------------------------------------------------------------------
 int main(int argc, char *argv[]){
 	if( argc != 6 ){	      				//Check required input parameters
-		printf("Too few arguments\nUsage: ./main <polynomial> <search word length> <errors> <init state>\n");
+		printf("Incorrect number of arguments\nUsage: ./main <polynomial> <search word length> <errors> <init state>\n");
 		return 0;
 	}
+	double runtime = 0.0;
+	clock_t begin = clock();
 
 	deg = atoi( argv[1] );					//Polynomial degree
 	m		= atoi( argv[2] );				//Search word length
@@ -77,10 +80,12 @@ int main(int argc, char *argv[]){
 	SSTATE = atoi( argv[4] );				//Set initial state
 
 	//printf("0: %s\n", argv[0]);				//Debug
+	#if defined DEBUG
 	printf("Degree:\t%d\n", deg);
 	printf("Search word:\t%d\n", m);
 	printf("Search text:\t%d\n", n);
 	printf("Allowed errors:\t%d + 1\n\n", slen-1);
+	#endif
 
 	FNAME = malloc(60*sizeof(char));		//Filename allocation
 	sprintf(FNAME, "ciphersearch_L%dM%dK%d_%s.log", deg, m, slen-1, argv[5]);
@@ -98,18 +103,24 @@ int main(int argc, char *argv[]){
 	
 	if( deg == 11 ){						//Set polynomial based on degree
 		mpz_set_ui(pol, 1209);				//2^11 irreducible polynomial
+		#if defined DEBUG
 		printf( "POL: 1209\n" );
+		#endif
 	} 
 	else if( deg == 16 ){								
 		mpz_set_ui(pol, 33262);				//2^16 irreducible polynomial
+		#if defined DEBUG
 		printf( "POL: 33262\n" );
+		#endif
 	}
 	else{
 		printf("Invalid polynomial degree\n");
 		return 0;
 	}
 
+	#if defined DEBUG
 	printf("START:\t%s\n", argv[4]);		//Debug
+	#endif
 
 	mpz_init(PLAINTEXT);
 	mpz_set_ui(PLAINTEXT, 0);				//Default value is 0
@@ -120,6 +131,7 @@ int main(int argc, char *argv[]){
 	#if defined DEBUG
 		printf("Generating clocking LFSR (R1) output sequence: \n");
 	#endif
+	
 	mpz_t LCLK;		mpz_init(LCLK);						//LFSR for dessimating
 	lfsrgen(LCLK, deg, m, pol, CLKSTATE, 0, NULL);			//Clocking LFSR
 
@@ -187,6 +199,7 @@ int main(int argc, char *argv[]){
 	uint_least64_t ci = 0;						// Candidate indicator.
 	uint_least64_t ct = 0;						// Total candidate counter.
 	int found = 0;
+	
 	FILE* fh = fopen(FNAME, "w");				// Open output file for writing
 
 	//While i less than 2^deg
@@ -281,7 +294,9 @@ int main(int argc, char *argv[]){
 	mpz_clear( B[1] );
 	free( B );																			//Free up memory
 	fclose( fh );																		//Close data file
-	printf("\n\nSoftware done\n");
+	clock_t end = clock();											//Stop runtime timer
+	runtime += (double)(end - begin) / CLOCKS_PER_SEC;
+	printf("\nRuntime: %f seconds", runtime);
 	printf("\nFound %"PRIu64" candidates\n", ct);
 	if (found==1) { 												// Determine if the actual initial state was included in the chosen set
 		printf("The actual initial state (%i) is within the set", SSTATE);
@@ -783,47 +798,51 @@ mpz_t* arbp_search(mpz_t* B, int K) {
 				printf("R[%llu]: %s", i, t );
 				mpz_out_str(stdout, 2, R[i]);
 				if( mpz_tstbit(newR, m-1) == 0 ) printf(" [!]");
+				printf("\n");	
 
 			#elif defined DEBUG
 				t = pb(R[i],m,0);
 				printf("R[%llu]: %s", i, t );
 				mpz_out_str(stdout, 2, R[i]);
 				if( mpz_tstbit(newR, m-1) == 1 ) printf(" [!]"); // Print indicator if match
-				
+				printf("\n");	
+
 			#endif
 
-			printf("\n");	
 			i++;										//Next error
 		}
 
 		// #if !defined DEBUG
 		// if( CSTATE == SSTATE ){
 		// #endif
-			mpz_init( MATCHES[pos] );
-			mpz_set_ui( MATCHES[pos], m );				//Init val of match at cur pos
-			int j	= 0;								//Init counter
-			#if defined SHIFTOR
-			if( mpz_tstbit(newR, m-1) == 0 ){			//Check if R-table has a match
+		mpz_init( MATCHES[pos] );
+		mpz_set_ui( MATCHES[pos], m );				//Init val of match at cur pos
+		int j	= 0;								//Init counter
+		#if defined SHIFTOR
+		if( mpz_tstbit(newR, m-1) == 0 ){			//Check if R-table has a match
+		#else				
+		if( mpz_tstbit(newR, m-1) == 1 ){			//Check if R-table has a match
+		#endif
 
-			#else				
-			if( mpz_tstbit(newR, m-1) == 1 ){			//Check if R-table has a match
-			#endif
-				while( j<K ){							//Loop R-table for matches (MSB set)
-					#if defined SHIFTOR
-					if(mpz_tstbit(R[j], m-1) == 0){		//Check if MSB zero
-					#else
-					if(mpz_tstbit(R[j], m-1) == 1){		//Check if MSB set
-					#endif
-						mpz_set_ui(MATCHES[pos], j);	//Set match to the R-level (0-K)
-						j = K;												//Skip to end
-					}
-					j++;														//Next error value
+		while( j<K ){							//Loop R-table for matches (MSB set)
+				#if defined SHIFTOR
+				if(mpz_tstbit(R[j], m-1) == 0){		//Check if MSB zero
+				#else
+				if(mpz_tstbit(R[j], m-1) == 1){		//Check if MSB set
+				#endif
+					mpz_set_ui(MATCHES[pos], j);	//Set match to the R-level (0-K)
+					j = K;												//Skip to end
 				}
+				j++;														//Next error value
 			}
+		}
+
 		// #if !defined DEBUG
 		// }
 		// #endif
+		#if defined DEBUG
 		printf("\n");
+		#endif
 		pos += 1;															//Next position in search text
 	}
 
@@ -835,7 +854,7 @@ mpz_t* arbp_search(mpz_t* B, int K) {
 	free(R);
 
 	//#if defined DEBUG
-		return MATCHES;
+	return MATCHES;
 	//#else
 	//	if( CSTATE == SSTATE )	return MATCHES;
 	//	else return NULL;
