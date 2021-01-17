@@ -41,12 +41,18 @@ mpz_t PLAINTEXT;			//Message to encipher
 mpz_t TEXT;					//Search text
 
 //-----------------------------------------------------------------------------
-// LFSR STRUCT
+// STRUCTs
 //-----------------------------------------------------------------------------
 struct LFSR {
 	mpz_t POLYNOMIAL; //Polynomial definition
 	mpz_t STATE;	  //LFSR state
 	int DEGREE;	  //Polynomial degree
+};
+
+struct CANDIDATE {
+	uint_least64_t istate;		// R2 initial state
+	mpz_t X;		// Undecimated output
+	mpz_t Z;		// Decimated ciphertext output
 };
 
 //-----------------------------------------------------------------------------
@@ -79,7 +85,6 @@ int main(int argc, char *argv[]){
 	n		= 2*m;							//Search text length 2m
 	SSTATE = atoi( argv[4] );				//Set initial state
 
-	//printf("0: %s\n", argv[0]);				//Debug
 	#if defined DEBUG
 	printf("Degree:\t%d\n", deg);
 	printf("Search word:\t%d\n", m);
@@ -89,8 +94,6 @@ int main(int argc, char *argv[]){
 
 	FNAME = malloc(60*sizeof(char));		//Filename allocation
 	sprintf(FNAME, "ciphersearch_L%dM%dK%d_%s.log", deg, m, slen-1, argv[5]);
-
-
 
 	mpz_t max;		
 	mpz_init( max );
@@ -124,7 +127,6 @@ int main(int argc, char *argv[]){
 
 	mpz_init(PLAINTEXT);
 	mpz_set_ui(PLAINTEXT, 0);				//Default value is 0
-
 
 	mpz_t*	B	= genAlphabet( ALPHASIZE );				//Generate alphabet
 
@@ -168,7 +170,6 @@ int main(int argc, char *argv[]){
 	#endif
 	genPrefixes( B, CIPHER);											//Gen prefixes for the alphabet
 
-
 	//Output generated data
 	#if defined DEBUG
 	printf( "Setup:" );
@@ -198,8 +199,10 @@ int main(int argc, char *argv[]){
 	uint_least64_t i = 1;						// initial state counter.
 	uint_least64_t ci = 0;						// Candidate indicator.
 	uint_least64_t ct = 0;						// Total candidate counter.
-	int found = 0;
-	
+	int found = 0;								// Indicator to show if the actual intial state was added to the set
+
+	struct CANDIDATE C[mpz_get_ui(max)]; 		// Create array for storing candidates.
+
 	FILE* fh = fopen(FNAME, "w");				// Open output file for writing
 
 	//While i less than 2^deg
@@ -215,8 +218,6 @@ int main(int argc, char *argv[]){
 
 		lfsrgen( TEXT, deg, n, pol, i, 1, B );	// Generate undecimated bitseq TEXT for current initial state
 		#if defined DEBUG
-			//free(t); t = pb(TEXT,n,0);
-			//printf( "TEXT:\t\t%s", t );	mpz_out_str(stdout, 2, TEXT);
 			free(t); t = pb(CIPHER,m,0);
 			printf( "\tCIPHER:\t\t%s", t); mpz_out_str(stdout, 2, CIPHER);
 			printf( "\n\n" );
@@ -239,51 +240,40 @@ int main(int argc, char *argv[]){
 		mpz_out_str(fh, 2, tmp);
 		fprintf( fh, "\nMATCH\t" );
 
-		//#else
-		// if( CSTATE == SSTATE ){
-		// 	printf( "INITSTATE\t%"PRIu64"\n", i);
-		// 	fprintf( fh, "INITSTATE\t%"PRIu64"\t%s", i, t );
-		// 	mpz_out_str(fh, 2, tmp);
-		// 	fprintf( fh, "\nMATCH\t" );
-		// }
-		// #endif
 		free( t );
 
-		// #if !defined DEBUG
-		// if( CSTATE == SSTATE ){
-		// #endif
-			int j = 0;
-			int k = 0;
-			while( j<n ){											//For each position
-				if( mpz_cmp_ui(MATCH[j], m) < 0){					//If match is less than m
-					// if( k > 0 && (k%15)==0 ){						//Decoration of stdout
-					// 	printf("\n\t");
-						
-					// }
-					// printf( "\t%d:", j); mpz_out_str(stdout, 10, MATCH[j] );
-					fprintf( fh, " %d:", j);	mpz_out_str( fh, 10, MATCH[j] );
-					mpz_clear( MATCH[j]);
-					k++;
-					ci++;
-																	//increment counter for print
-				}
-				j++;												//Next position
+		int j = 0;
+		int k = 0;
+		while( j<n ){											//For each position
+			if( mpz_cmp_ui(MATCH[j], m) < 0){					//If match is less than m
+				// if( k > 0 && (k%15)==0 ){						//Decoration of stdout
+				// 	printf("\n\t");
+					
+				// }
+				// printf( "\t%d:", j); mpz_out_str(stdout, 10, MATCH[j] );
+				fprintf( fh, " %d:", j);	mpz_out_str( fh, 10, MATCH[j] );
+				mpz_clear( MATCH[j]);
+				k++;
+				ci++;											//increment counter for print
 			}
-			if (ci > 0) {											//Increment candidate counter
-				if ( CSTATE == SSTATE ) {							//Indicate that actual init state was added as candidate.
-					found = 1;	
-				}
-				ct++;
-				ci = 0;
+			j++;												//Next position
+		}
+		if (ci > 0) {											//Increment candidate counter
+			if ( CSTATE == SSTATE ) {							//Indicate that actual init state was added as candidate.
+				found = 1;	
 			}
+			C[ct].istate = i;
+			mpz_set(C[ct].X, TEXT);
+			mpz_set(C[ct].Z, CIPHER);
+			ct++;
+			ci = 0;
+		}
 
-			// printf( "\n\n" );
-			fprintf( fh, "\n");
-			fprintf( fh, "\n" );
-			fflush( fh );
-		// #if !defined DEBUG
-		// }
-		// #endif
+		// printf( "\n\n" );
+		fprintf( fh, "\n");
+		fprintf( fh, "\n" );
+		fflush( fh );
+
 		i++;														//Next initial state
 		free(MATCH);
 	}
@@ -296,13 +286,25 @@ int main(int argc, char *argv[]){
 	fclose( fh );																		//Close data file
 	clock_t end = clock();											//Stop runtime timer
 	runtime += (double)(end - begin) / CLOCKS_PER_SEC;
+
+	int u=0;
+
+	size_t size = sizeof(C)/sizeof(C[0]);
+	
+	while (u<size) {
+		printf("\n%i %"PRIu64" ", u, C[u].istate);
+		//mpz_out_str(stdout, 2, C[u].X); printf(" ");
+		//mpz_out_str(stdout, 2, C[u].Z);
+		u++;
+	}
+	printf("Size: %zu \n", sizeof(C));
 	printf("\nRuntime: %f seconds", runtime);
 	printf("\nFound %"PRIu64" candidates\n", ct);
 	if (found==1) { 												// Determine if the actual initial state was included in the chosen set
-		printf("The actual initial state (%i) is within the set", SSTATE);
+		printf("The actual initial state (%i) is within the set\n", SSTATE);
 	} 
 	else {
-		printf("The actual initial state (%i) is NOT within the set", SSTATE);
+		printf("The actual initial state (%i) is NOT within the set\n", SSTATE);
 	}
 	return 0;
 }
