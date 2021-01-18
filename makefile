@@ -9,7 +9,7 @@ debug: clean
 	gcc -DSHIFTOR -DDEBUG -DINC_INSERT -o main main.c -lgmp
 
 shiftand: clean
-	gcc -DDEBUG -o main_or main.c -lgmp
+	gcc -DINC_INSERT -o main_and main.c -lgmp
 
 clkit: clean
 	gcc -DCLKIT -DSHIFTOR -DINC_INSERT -o main main.c -lgmp
