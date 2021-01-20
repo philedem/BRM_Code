@@ -11,9 +11,6 @@ debug: clean
 shiftand: clean
 	gcc -DINC_INSERT -o main_and main.c -lgmp
 
-clkit: clean
-	gcc -DCLKIT -DSHIFTOR -DINC_INSERT -o main main.c -lgmp
-
 clean:
 	rm -f main *.lib
 
