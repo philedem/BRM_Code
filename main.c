@@ -289,12 +289,12 @@ int main(int argc, char *argv[]){
 
 	int u=0;
 	struct CANDIDATE* ptr = C;
-	struct CANDIDATE* endPtr = C + sizeof(*C)/sizeof(C[0]);
+	struct CANDIDATE* endPtr = C + (sizeof(*C)/sizeof(struct CANDIDATE) * mpz_get_ui(max));
 	while ( ptr < endPtr ) {
 		if (ptr->istate == 0){
 			break;
 		}
-		fprintf(fh, "\n%i,", ptr->istate); fprintf(fh, ","); mpz_out_str(fh, 10, ptr->X);
+		fprintf(fh, "\n%i,", ptr->istate); mpz_out_str(fh, 2, ptr->X);
 		u++;
 		ptr++;
 	}
@@ -314,7 +314,7 @@ int main(int argc, char *argv[]){
 
 	//-----------------------------------------------------------------------------
 	// At this point we have created the set of candidates C.
-	// 
+	// The candidates persist in memory and has been written to file.
 	//
 	// Step TWO: For every candidate in C
 	// 1. Decimate its output and encrypt (add noise)
@@ -901,6 +901,7 @@ int match_R1( struct CANDIDATE* candidates, struct CANDIDATE* endCandidates, mpz
 	mpz_t CIPHER2;	mpz_init( CIPHER2 );					//Gen intercepted ciphertext
 
 
+
 	while ( candidates < endCandidates ) {
 		if (candidates->istate == 0){
 			break;
@@ -934,6 +935,7 @@ int match_R1( struct CANDIDATE* candidates, struct CANDIDATE* endCandidates, mpz
 				printf("\nMatch found for R1 init state %i and R2 init state %i", i, candidates->istate);
 				return 0;
 			}
+
 			mpz_clear(LCLK);
 			mpz_clear(CIPHER2);
 			i++;
