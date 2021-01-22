@@ -207,7 +207,10 @@ int main(int argc, char *argv[]){
 	uint_least64_t ct = 0;								// Total candidate counter.
 	int found = 0;										// Indicator to show if the actual intial state was added to the set
 
-	struct CANDIDATE C[mpz_get_ui(max)]; 				// Create array for storing candidates.
+	//struct CANDIDATE C[mpz_get_ui(max)]; 				// Create array for storing candidates.
+
+	struct CANDIDATE* C = malloc( mpz_get_ui(max) * sizeof(struct CANDIDATE) );
+	//struct CANDIDATE C[mpz_get_ui(max)]; 				// Create array for storing candidates.
 
 	FILE* fh = fopen(FNAME, "w");						// Open output file for writing
 
@@ -286,7 +289,7 @@ int main(int argc, char *argv[]){
 
 	int u=0;
 	struct CANDIDATE* ptr = C;
-	struct CANDIDATE* endPtr = C + sizeof(C)/sizeof(C[0]);
+	struct CANDIDATE* endPtr = C + sizeof(*C)/sizeof(C[0]);
 	while ( ptr < endPtr ) {
 		if (ptr->istate == 0){
 			break;
