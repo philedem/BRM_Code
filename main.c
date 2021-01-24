@@ -500,7 +500,7 @@ int lfsr_iterate( struct LFSR* lfsr) {
 	fbck = fbck % 2; // XOR the feedback bits
 	mpz_lshift(lfsr->STATE, lfsr->DEGREE);	//Left shift
 	if( fbck == 1 )	mpz_setbit( lfsr->STATE, 0 );
-
+	mpz_clear( tmp );
 	return ret;											//Return output character
 }
 
@@ -596,6 +596,10 @@ void lfsrgen(mpz_t rop, int psize, int olen, mpz_t p,
 	#endif
 	mpz_set(rop, OUTPUT);
 	mpz_clear(OUTPUT);
+	mpz_clear( lfsr.POLYNOMIAL );
+	mpz_clear( lfsr.STATE );
+	//free( lfsr.DEGREE );
+	//free( lfsr ); 
 }
 
 
@@ -771,12 +775,12 @@ mpz_t* arbp_search(mpz_t* B, int K) {
 		#endif
 
 
-		uint_least64_t i	= 1;						//Calc matches with K allowed errors
+		uint_least64_t i = 1;								//Calc matches with K allowed errors
 		while( i < K ) {
 			mpz_clear( tmp1 );mpz_clear(tmp2); mpz_clear(tmp3);
 			mpz_init(tmp1);	mpz_init(tmp2);	mpz_init(tmp3);	//reset and initialise temp variables
 
-														//Substitute and deletion
+															//Substitute and deletion
 			#if defined SHIFTOR
 				mpz_set(tmp3, oldR);						//tmp3 = oldR
 				mpz_lshift(tmp3, m);						//tmp3 = <tmp3> << 1
@@ -899,8 +903,9 @@ int match_R1( struct CANDIDATE* candidates, struct CANDIDATE* endCandidates, mpz
 	mpz_t LDES; mpz_init(LDES);
 	mpz_t LCLK;	mpz_init(LCLK);						//LFSR for dessimating
 	mpz_t CIPHER2;	mpz_init( CIPHER2 );					//Gen intercepted ciphertext
-
-
+	mpz_init(LDES);
+	mpz_init(LCLK);	
+	mpz_init(CIPHER2);
 
 	while ( candidates < endCandidates ) {
 		if (candidates->istate == 0){
@@ -908,7 +913,7 @@ int match_R1( struct CANDIDATE* candidates, struct CANDIDATE* endCandidates, mpz
 		}
 		//printf("\n%i,", candidates->istate); mpz_out_str(stdout, 2, candidates->X); 
 
-		mpz_init(LDES);
+
 		mpz_set(LDES, candidates->X);
 		//x = mpz_get_ui(candidates->istate);
 		//lfsrgen(LDES, deg, n, pol, candidates->istate, 0, NULL);				//Clocking LFSR
@@ -918,7 +923,7 @@ int match_R1( struct CANDIDATE* candidates, struct CANDIDATE* endCandidates, mpz
 			#if defined DEBUG
 				printf("Generating clocking LFSR (R1) output sequence: \n");
 			#endif
-			mpz_init(LCLK);	
+	
 			lfsrgen(LCLK, deg, m, pol, i, 0, NULL);				//Clocking LFSR
 			
 			//mpz_out_str(stdout, 10, LCLK);
@@ -926,7 +931,7 @@ int match_R1( struct CANDIDATE* candidates, struct CANDIDATE* endCandidates, mpz
 			#if defined DEBUG
 				printf("Calculating the Decimated bitsequence and creating ciphertext:\n\n");
 			#endif
-			mpz_init(CIPHER2);
+
 			genEncrypt(	CIPHER2, LCLK, LDES );
 			//printf("\n");
 			//mpz_out_str(stdout, 10, CIPHER2); printf(" "); mpz_out_str(stdout, 10, *tgt_cipher );
@@ -936,14 +941,16 @@ int match_R1( struct CANDIDATE* candidates, struct CANDIDATE* endCandidates, mpz
 				return 0;
 			}
 
-			mpz_clear(LCLK);
-			mpz_clear(CIPHER2);
 			i++;
 		}
-		mpz_clear(LDES);
+
+
 
 		candidates++;
 	}
+	mpz_clear(LCLK);
+	mpz_clear(CIPHER2);
+	mpz_clear(LDES);
 
 	printf("\nNo match found... exiting.");
 	return 1;
