@@ -11,7 +11,6 @@ echo "$DS"
 while [ $i -lt $C ]
 do
 	echo "$i"
-
 	./main "$P" "$1" "$2" "$i" "eval"
 	i=$[$i+1]
 done
