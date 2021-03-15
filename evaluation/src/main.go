@@ -1,5 +1,6 @@
 package main
 
+// #cgo CFLAGS: -DSHIFTOR -DINC_INSERT
 // #cgo LDFLAGS: -lgmp
 // #include "../../main.c"
 // static void* allocArgv(int argc) {
@@ -10,8 +11,8 @@ import ("C")
 
 import (
 	"fmt"
-	"os"
-	"unsafe"
+	//"os"
+	//"unsafe"
 )
 
 // Make a struct for each init state R2 
@@ -22,16 +23,21 @@ func strlen(s string, c chan int) {
 }
 
 func main() {
-	argv := os.Args
-    argc := C.int(len(argv))
-    c_argv := (*[0xfff]*C.char)(C.allocArgv(argc))
-    defer C.free(unsafe.Pointer(c_argv))
+	// Translate argv and argc to C-compatible arrays and pass it to mainrun()
+	// argv := os.Args
+ //    argc := C.int(len(argv))
+ //    c_argv := (*[0xfff]*C.char)(C.allocArgv(argc))
+ //    defer C.free(unsafe.Pointer(c_argv))
 
-    for i, arg := range argv {
-        c_argv[i] = C.CString(arg)
-        defer C.free(unsafe.Pointer(c_argv[i]))
-    }
-    C.mainrun(argc, (**C.char)(unsafe.Pointer(c_argv)))
+ //    for i, arg := range argv {
+ //        c_argv[i] = C.CString(arg)
+ //        defer C.free(unsafe.Pointer(c_argv[i]))
+ //    }
+
+    // Start the C-program
+    //C.mainrun(argc, (**C.char)(unsafe.Pointer(c_argv)))
+    C.mainrun(16, 50, 15, 1100, 1001, C.CString("test2"))
+
 	
 	//C.mainrun()
 	c := make(chan int)

@@ -25,8 +25,6 @@
 #include <inttypes.h>   //64b int
 #include <gmp.h>        //arbitrary integer size
 
-#include "pb.h"
-
 
 //-----------------------------------------------------------------------------
 // GLOBAL VARIABLES
@@ -77,25 +75,26 @@ char* pb( mpz_t, int, int );					//Print prepending zeros
 //-----------------------------------------------------------------------------
 //	MAIN FUNCTION
 //-----------------------------------------------------------------------------
-int mainrun(int argc, char *argv[]){
+//int main(int argc, char *argv[]){
+int mainrun(int deg, int m, int k, int CLKSTATE, int SSTATE, char* filename) {
 	//-----------------------------------------------------------------------------
 	// We start by creating the target cryptosystem and generating the ciphertext.
 	// After the ciphertext has been created we forget the initial variables. 
 	//-----------------------------------------------------------------------------
 
-	if( argc != 7 ){	      							//Check required input parameters
-		printf("Incorrect number of arguments\nUsage: ./main <polynomial> <search word length> <errors> <init state R1> <init state R2>\n");
-		return 0;
-	}
+	// if( argc != 7 ){	      							//Check required input parameters
+	// 	printf("Incorrect number of arguments\nUsage: ./main <polynomial> <search word length> <errors> <init state R1> <init state R2>\n");
+	// 	return 0;
+	// }
 	double runtime = 0.0;
 	clock_t begin = clock();
 
-	deg = atoi( argv[1] );								//Polynomial degree
-	m		= atoi( argv[2] );							//Search word length
-	slen= atoi( argv[3] ) + 1 ;							//Allowed errors
+	//deg = atoi( argv[1] );								//Polynomial degree
+	//m		= atoi( argv[2] );							//Search word length
+	slen = k + 1 ;							//Allowed errors
 	n		= 2*m;										//Search text length 2m
-	CLKSTATE = atoi( argv[4] );							//Set initial state of R1
-	SSTATE = atoi( argv[5] );							//Set initial state of R2
+	//CLKSTATE = atoi( argv[4] );							//Set initial state of R1
+	//SSTATE = atoi( argv[5] );							//Set initial state of R2
 
 	#if defined DEBUG
 	printf("Degree:\t%d\n", deg);
@@ -105,7 +104,7 @@ int mainrun(int argc, char *argv[]){
 	#endif
 
 	FNAME = malloc(60*sizeof(char));					//Filename allocation
-	sprintf(FNAME, "ciphersearch_L%dM%dK%dI%d_%s.log", deg, m, slen-1, SSTATE, argv[5]);
+	sprintf(FNAME, "ciphersearch_L%dM%dK%dI%d_%s.log", deg, m, slen-1, SSTATE, filename);
 
 	
 	mpz_init( max );
@@ -131,9 +130,9 @@ int mainrun(int argc, char *argv[]){
 		return 0;
 	}
 
-	#if defined DEBUG
-	printf("START:\t%s\n", argv[4]);					//Debug
-	#endif
+	//#if defined DEBUG
+	//printf("START:\t%s\n",  CLKSTATE);					//Debug
+	//#endif
 
 	mpz_init(PLAINTEXT);	
 	mpz_set_ui(PLAINTEXT, 0);							//Default value is 0
@@ -355,6 +354,25 @@ int mainrun(int argc, char *argv[]){
  *	returns a char pointer to an array filled with missing bits 
  * or nothing if it is already full.
 -----------------------------------------------------------------------------*/
+
+
+char* pb( mpz_t num, int len, int b ){
+	size_t plen = len+1 - mpz_sizeinbase( num, 2 );
+	if( plen == 0 )
+		return "";
+	char* pre = malloc( plen * sizeof(char) );			//Allocate plen length array
+	int i = 0;
+	while( i < plen-1 ){
+		if( b == 1){
+			pre[i++] = '1';
+		}
+		else{
+			pre[i++] = '0';
+		}
+	}
+	pre[i]='\0';
+	return pre;
+}
 
 /*-----------------------------------------------------------------------------
  *	Left shift MPZ_T variable to the left
