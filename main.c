@@ -25,6 +25,9 @@
 #include <inttypes.h>   //64b int
 #include <gmp.h>        //arbitrary integer size
 
+#include "pb.h"
+
+
 //-----------------------------------------------------------------------------
 // GLOBAL VARIABLES
 //-----------------------------------------------------------------------------
@@ -74,7 +77,7 @@ char* pb( mpz_t, int, int );					//Print prepending zeros
 //-----------------------------------------------------------------------------
 //	MAIN FUNCTION
 //-----------------------------------------------------------------------------
-int main(int argc, char *argv[]){
+int mainrun(int argc, char *argv[]){
 	//-----------------------------------------------------------------------------
 	// We start by creating the target cryptosystem and generating the ciphertext.
 	// After the ciphertext has been created we forget the initial variables. 
@@ -302,7 +305,7 @@ int main(int argc, char *argv[]){
 
 	clock_t end = clock();										//Stop runtime timer
 	runtime += (double)(end - begin) / CLOCKS_PER_SEC;
-	printf("\nRuntime: %f seconds", runtime);
+	printf("\nRuntime: %f seconds", runtime);	
 	printf("\nFound %"PRIu64" candidates\n", ct);
 	if (found==1) { 											//Determine if the actual initial state was included in the chosen set
 		printf("The actual initial state (%i) is within the set\n", SSTATE);
@@ -352,23 +355,6 @@ int main(int argc, char *argv[]){
  *	returns a char pointer to an array filled with missing bits 
  * or nothing if it is already full.
 -----------------------------------------------------------------------------*/
-char* pb( mpz_t num, int len, int b ){
-	size_t plen = len+1 - mpz_sizeinbase( num, 2 );
-	if( plen == 0 )
-		return "";
-	char* pre = malloc( plen * sizeof(char) );			//Allocate plen length array
-	int i = 0;
-	while( i < plen-1 ){
-		if( b == 1){
-			pre[i++] = '1';
-		}
-		else{
-			pre[i++] = '0';
-		}
-	}
-	pre[i]='\0';
-	return pre;
-}
 
 /*-----------------------------------------------------------------------------
  *	Left shift MPZ_T variable to the left
@@ -510,7 +496,7 @@ int lfsr_iterate( struct LFSR* lfsr) {
  * With all arbitrary skips until first prefix is met
 -----------------------------------------------------------------------------*/
 void lfsrgen(mpz_t rop, int psize, int olen, mpz_t p,
-						 uint_least64_t iv, int skip, mpz_t* B){
+	 					uint_least64_t iv, int skip, mpz_t* B){
 	int i;											//Counter var
 	int initmatch = 0;								//Check if first prefix is found
 	struct LFSR lfsr;								//Create struct variable
@@ -914,7 +900,7 @@ int match_R1( struct CANDIDATE* candidates, struct CANDIDATE* endCandidates, mpz
 		//printf("\n%i,", candidates->istate); mpz_out_str(stdout, 2, candidates->X); 
 
 
-		mpz_set(LDES, candidates->X);
+		mpz_set(LDES, candidates->X);	// Get the current candidate
 		//x = mpz_get_ui(candidates->istate);
 		//lfsrgen(LDES, deg, n, pol, candidates->istate, 0, NULL);				//Clocking LFSR
 
@@ -926,7 +912,7 @@ int match_R1( struct CANDIDATE* candidates, struct CANDIDATE* endCandidates, mpz
 	
 			lfsrgen(LCLK, deg, m, pol, i, 0, NULL);				//Clocking LFSR
 			
-			//mpz_out_str(stdout, 10, LCLK);
+			// Perhaps we should save the corresponding CIPHER output from the LDES so we save some time.
 
 			#if defined DEBUG
 				printf("Calculating the Decimated bitsequence and creating ciphertext:\n\n");
