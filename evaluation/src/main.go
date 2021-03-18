@@ -1,48 +1,120 @@
+//############################################
+//
+// Evaluation program for assesing BRM_Code
+//
+//############################################
+
+
 package main
 
-// #cgo CFLAGS: -DSHIFTOR -DINC_INSERT
 // #cgo LDFLAGS: -lgmp
-// #include "../../main.c"
-// static void* allocArgv(int argc) {
-//    return malloc(sizeof(char *) * argc);
-// }
-import ("C")
-
+// #cgo CFLAGS: -DSHIFTOR -DINC_INSERT
+// #include "brm.c"
+import "C"
 
 import (
 	"fmt"
-	//"os"
-	//"unsafe"
+	"os"
+	"os/exec"
+	"strconv"
+	"sync"
+    "github.com/schollz/progressbar/v3"
 )
 
-// Make a struct for each init state R2 
-// when generating 
+func getCands(pol int, m int, k int, i1 int, i2 int, c chan string, wg *sync.WaitGroup, bar *progressbar.ProgressBar) {
+	err := exec.Command("../../main", strconv.Itoa(pol), strconv.Itoa(m), strconv.Itoa(k), strconv.Itoa(i1), strconv.Itoa(i2)).Run()
+    var ret string
+    var s int
+	//score := float64(m)/float64(k)
+    if err != nil { // No match found
+    	s = 1
+    	//fmt.Println(err)
+    } else {
+    	s = 0
+    	ret = fmt.Sprintf("%d,%d,%d", m, k, s)
+    	c <- ret
+    }
 
-func strlen(s string, c chan int) { 
-	c <- len(s)
+    bar.Add(1) 
+    defer wg.Done()
+}
+
+func getCands2(pol int, m int, k int, i1 int, i2 int) {//, c chan string, wg *sync.WaitGroup, bar *progressbar.ProgressBar) {
+    r :=  C.brm(C.int(pol), C.int(m), C.int(k), C.int(i1), C.int(i2))
+    //var ret string
+
+	if r == 0 {
+		fmt.Println("YAHOO")
+    	//ret = fmt.Sprintf("%d,%d,%d", m, k, r)
+    	//c <- ret
+	} else {
+		fmt.Println("BOO")
+
+	}
+	//fmt.Println(r)
+
+	//bar.Add(1)
+	//defer wg.Done()
+}
+
+func getTotal(min int, max int) int {
+	var t int
+	for i := min; i < max; i++ {
+		for j := 1; j < (i / 2); j++ {
+			t++
+		}
+	}
+	return t
 }
 
 func main() {
-	// Translate argv and argc to C-compatible arrays and pass it to mainrun()
-	// argv := os.Args
- //    argc := C.int(len(argv))
- //    c_argv := (*[0xfff]*C.char)(C.allocArgv(argc))
- //    defer C.free(unsafe.Pointer(c_argv))
+	pol := 11
+	min_m := 10
+	max_m := 40
+	r1_init := 100
+	r2_init := 100
 
- //    for i, arg := range argv {
- //        c_argv[i] = C.CString(arg)
- //        defer C.free(unsafe.Pointer(c_argv[i]))
- //    }
+	count := 0
 
-    // Start the C-program
-    //C.mainrun(argc, (**C.char)(unsafe.Pointer(c_argv)))
-    C.mainrun(16, 50, 15, 1100, 1001, C.CString("test2"))
+	total := getTotal(min_m, max_m) // Get total amount of iterations
+	bar := progressbar.Default(int64(total)) // Initialize progressbar
 
-	
-	//C.mainrun()
-	c := make(chan int)
-	go strlen("Salutations", c)
-	go strlen("World", c) 
-	x, y := <-c, <-c
-    fmt.Println(x, y, x+y)
+	var wg sync.WaitGroup 
+	c := make(chan string, 1000)
+	//var result []string 
+
+	// Calculate the total number of jobs to be run
+	getCands2(pol, min_m, max_m, r1_init, r2_init) //, c, &wg, bar)
+
+	fmt.Printf("Testing R1 = %d, R2 = %d, m = %d ... %d, k = 1 ... (m/2) which gives a total of %d runs.\n", r1_init, r2_init, min_m, max_m, total)
+
+
+	f, err :=  os.OpenFile("output.txt", os.O_CREATE|os.O_RDWR|os.O_APPEND, 0666);
+    if err != nil {
+             panic(err)
+    }
+    defer f.Close()
+
+	// Iterate with increasing search word lengths.
+	for i := min_m; i < max_m; i++ {
+		// Iterate through increasing error levels, k until we reach the current m / 2
+		for j := 1; j < (i / 2); j++ {
+			wg.Add(1)
+			//go getCands(pol, i, j, r1_init, r2_init, c, &wg, bar)
+			go getCands(pol, i, j, r1_init, r2_init, c, &wg, bar)
+		}
+	}
+
+	wg.Wait()
+	close(c)
+
+	for res := range c {
+	    f.WriteString(res+"\n")
+	    count++
+	}
+
+	fmt.Printf("%d of %d potentially valid sets found.\n", count, total)
+
+	// Check for collissions
+
 }
