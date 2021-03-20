@@ -31,17 +31,17 @@
 //-----------------------------------------------------------------------------
 //char* FNAME;				//Output filename
 const int ALPHASIZE = 2;	//Alphabet size, 0 & 1
-int m;		 				//Size of search word
-int n;						//Size of text
-int slen;					//K value
-int deg;					//Polynomial degree
-int SSTATE;		 			//Initial state of R2
-int CLKSTATE;				//Initial state of R1
-int CSTATE;					//Current state holder
-mpz_t PLAINTEXT;			//Message to encipher
+//int m;		 				//Size of search word
+//int n;						//Size of text
+//int slen;					//K value
+//int deg;					//Polynomial degree
+//int SSTATE;		 			//Initial state of R2
+//int CLKSTATE;				//Initial state of R1
+//int CSTATE;					//Current state holder
+//mpz_t PLAINTEXT;			//Message to encipher
 mpz_t TEXT;					//Search text
-mpz_t max;					//Maximum value of the LFSR (all 1's)
-mpz_t pol;		
+//mpz_t max;					//Maximum value of the LFSR (all 1's)
+//mpz_t pol;		
 
 
 //-----------------------------------------------------------------------------
@@ -64,18 +64,24 @@ struct CANDIDATE {
 mpz_t* genAlphabet( int );					   	//Gen array of the alphabet
 int lfsr_iterate( struct LFSR*);				//Gen next state & output
 void lfsrgen(mpz_t, int, int, mpz_t, uint_least64_t, int, mpz_t*); //Gen LFRS
-mpz_t* arbp_search( mpz_t*, int );              //Main search function
-mpz_t* genError(int);  						   	//Gen init error table
-void genPrefixes( mpz_t*, mpz_t );				//Generate the prefixes
-void genEncrypt( mpz_t, mpz_t, mpz_t );	        //Encrypt the plaintext
+mpz_t* arbp_search( mpz_t*, int, int, int );              //Main search function
+mpz_t* genError(int, int);  						   	//Gen init error table
+void genPrefixes( mpz_t*, mpz_t, int );				//Generate the prefixes
+void genEncrypt( mpz_t, mpz_t, mpz_t, mpz_t, int );	        //Encrypt the plaintext
 void mpz_lshift( mpz_t, int );					//Left shift bin seq by 1
-int match_R1( struct CANDIDATE*, struct CANDIDATE*, mpz_t*);			//Exact match for the output of genEncrypt
+int match_R1( struct CANDIDATE*, struct CANDIDATE*, mpz_t*, mpz_t, mpz_t, mpz_t, int, int);			//Exact match for the output of genEncrypt
 char* pb( mpz_t, int, int );					//Print prepending zeros
 
 //-----------------------------------------------------------------------------
 //	MAIN FUNCTION
 //-----------------------------------------------------------------------------
-int brm(int degin, int min, int slen, int CLKSTATEin, int SSTATEin){
+int brm(int deg, int m, int slen, int CLKSTATE, int SSTATE){
+	// Variable initialization
+	int n;
+	int CSTATE;
+	mpz_t PLAINTEXT;
+	mpz_t max;
+	mpz_t pol;
 	//-----------------------------------------------------------------------------
 	// We start by creating the target cryptosystem and generating the ciphertext.
 	// After the ciphertext has been created we forget the initial variables. 
@@ -83,13 +89,8 @@ int brm(int degin, int min, int slen, int CLKSTATEin, int SSTATEin){
 
 	double runtime = 0.0;
 	clock_t begin = clock();
-
-	deg = degin;							//Polynomial degree
-	m	= min;							//Search word length
 	slen = slen + 1 ;							//Allowed errors
 	n	= 2*m;										//Search text length 2m
-	CLKSTATE = CLKSTATEin;							//Set initial state of R1
-	SSTATE = SSTATEin;							//Set initial state of R2
 
 	//FNAME = malloc(60*sizeof(char));					//Filename allocation
 	//sprintf(FNAME, "ciphersearch_L%dM%dK%dI%d_%s.log", deg, m, slen-1, SSTATE, "meh");
@@ -115,38 +116,19 @@ int brm(int degin, int min, int slen, int CLKSTATEin, int SSTATEin){
 	mpz_set_ui(PLAINTEXT, 0);							//Default value is 0
 
 	mpz_t*	B	= genAlphabet( ALPHASIZE );				//Generate alphabet
-	#if defined DEBUG
-		printf("Generating clocking LFSR (R1) output sequence: \n");
-	#endif
+
 	mpz_t LCLK;		mpz_init(LCLK);						//LFSR for dessimating
 	lfsrgen(LCLK, deg, m, pol, CLKSTATE, 0, NULL);		//Clocking LFSR
-	#if defined DEBUG
-		printf("Generating clocked LFSR (R2) output sequence: \n");
-	#endif
+
 	mpz_t LDES;		mpz_init(LDES);						//LFSR to be dessimated
 	lfsrgen(LDES, deg, n, pol, SSTATE, 0, NULL);		//Dessimated LFSR
-	#if defined DEBUG
-		printf("Calculating the Decimated bitsequence and creating ciphertext:\n\n");
-	#endif
+
 	mpz_t CIPHER;	mpz_init( CIPHER );					//Gen intercepted ciphertext
-	genEncrypt(	CIPHER, LCLK, LDES );
+	genEncrypt(	CIPHER, LCLK, LDES, PLAINTEXT, m);
 
 	mpz_clear( LCLK );									//Cleanup LFSRs
 	mpz_clear( LDES );
 
-	#if defined DEBUG
-	printf( "Setup:" );
-	printf( "\n\tPOLYNOMIAL:\t%s", t);		mpz_out_str(stdout, 2, pol);
-	free(t);	t = pb(PLAINTEXT, m, 0);
-	printf( "\n\tPLAINTEXT:\t%s", t);	mpz_out_str(stdout, 2, PLAINTEXT);
-	free(t);	t = pb(LCLK, m, 0);
-	printf( "\n\tLFSR R1 SEQ:\t%s", t);	mpz_out_str(stdout, 2, LCLK);
-	free(t);	t = pb(LDES, n, 0);
-	printf( "\n\tLFSR R2 SEQ:\t%s", t);	mpz_out_str(stdout, 2, LDES);
-	free(t);	t = pb(CIPHER,m, 0);
-	printf( "\n\tCIPHERTEXT:\t%s", t);	mpz_out_str(stdout, 2, CIPHER);
-	free(t);	t = pb(B[0], m, 0);
-	#endif
 	//-----------------------------------------------------------------------------
 	// At this point, the target (CIPHER) has been created. 
 	// The known-plaintext attack starts here.
@@ -157,7 +139,7 @@ int brm(int degin, int min, int slen, int CLKSTATEin, int SSTATEin){
 	// <initial state>, <R2 undeciamted output sequence of length n>
 	//-----------------------------------------------------------------------------
 
-	genPrefixes( B, CIPHER);							//Generate prefixes for the alphabet
+	genPrefixes(B, CIPHER, m);							//Generate prefixes for the alphabet
 
 	mpz_t tmp;		
 	mpz_init( tmp );									// Geneate tmp variable
@@ -175,7 +157,7 @@ int brm(int degin, int min, int slen, int CLKSTATEin, int SSTATEin){
 		//lfsrgen( TEXT, deg, n, pol, i, 1, B );		// Generate undecimated bitseq TEXT for current initial state
 		lfsrgen( TEXT, deg, n, pol, i, 0, NULL );		// Generate undecimated bitseq TEXT for current initial state
 
-		mpz_t*	MATCH = arbp_search(B, slen);			// Run the ARBP search on TEXT with slen errors allowed and return matches with CLD and position. 
+		mpz_t*	MATCH = arbp_search(B, slen, m, n);			// Run the ARBP search on TEXT with slen errors allowed and return matches with CLD and position. 
 														// TODO; Pass TEXT variable instead of global var. For scalability.
 		int j = 0;
 		while(j < n){											//For each position
@@ -241,7 +223,7 @@ int brm(int degin, int min, int slen, int CLKSTATEin, int SSTATEin){
 	// iteratively or in lesser blocks (e.g. 8 bits) to eliminate non-matches quicker
 	//-----------------------------------------------------------------------------
 
-	//match_R1(C, endPtr, &CIPHER);
+	//match_R1(C, endPtr, &CIPHER, PLAINTEXT, max, m, deg);
 
 	// printf("\n");
 
@@ -258,7 +240,7 @@ int brm(int degin, int min, int slen, int CLKSTATEin, int SSTATEin){
 	// printf("\nRuntime: %f seconds\n", runtime);
 
 	if (found==1) { 											//Determine if the actual initial state was included in the chosen set
-	 	printf("The actual initial state (%i) is within the set\n", SSTATE);
+	 	//printf("The actual initial state (%i) is within the set\n", SSTATE);
 		return 0;
 	} 
 	else {
@@ -324,7 +306,7 @@ void mpz_lshift( mpz_t rop, int len ) {
  *	X is the encrypting LFSR
  *	Implementation of the BRM
 -----------------------------------------------------------------------------*/
-void genEncrypt(mpz_t rop, mpz_t CLK, mpz_t DES){
+void genEncrypt(mpz_t rop, mpz_t CLK, mpz_t DES, mpz_t PLAINTEXT, int m){
 	int i =	0;
 	int	j = 0;
 	int x, y;
@@ -537,7 +519,7 @@ void lfsrgen(mpz_t rop, int psize, int olen, mpz_t p,
 /*-----------------------------------------------------------------------------
  * Creates the prefixes
 -----------------------------------------------------------------------------*/
-void genPrefixes( mpz_t* B, mpz_t P ){
+void genPrefixes( mpz_t* B, mpz_t P, int m ){
 	int	 j = 0;
 
 	mpz_t tmp;  
@@ -585,7 +567,7 @@ void genPrefixes( mpz_t* B, mpz_t P ){
 /*-----------------------------------------------------------------------------
  * Creates the error list of K-size
 -----------------------------------------------------------------------------*/
-mpz_t* genError(int K) {
+mpz_t* genError(int K, int m) {
 	mpz_t*	R	= malloc( K*sizeof(mpz_t) );		//Allocate memory for array
 	#if defined DEBUG
 		printf("Gen error R[%d..%d]\n", 0, K-1);
@@ -622,7 +604,7 @@ mpz_t* genError(int K) {
 /*-----------------------------------------------------------------------------
  * Perform search on TEXT and PREFIX
 -----------------------------------------------------------------------------*/
-mpz_t* arbp_search(mpz_t* B, int K) {
+mpz_t* arbp_search(mpz_t* B, int K, int m, int n) {
 	mpz_t tmp1;	
 	mpz_init( tmp1 );									//Tmp variables
 	mpz_t tmp2;		
@@ -630,7 +612,7 @@ mpz_t* arbp_search(mpz_t* B, int K) {
 	mpz_t tmp3;		
 	mpz_init( tmp3 );
 														//Match for each position in text
-	mpz_t* R = genError( K );							//Gen error-table
+	mpz_t* R = genError(K, m);							//Gen error-table
 	mpz_t* MATCHES = malloc( n * sizeof(mpz_t) );
 
 	mpz_t oldR, newR;									//Create and init variables
@@ -828,7 +810,7 @@ mpz_t* arbp_search(mpz_t* B, int K) {
 	//#endif
 }
 
-int match_R1( struct CANDIDATE* candidates, struct CANDIDATE* endCandidates, mpz_t* tgt_cipher ) {
+int match_R1( struct CANDIDATE* candidates, struct CANDIDATE* endCandidates, mpz_t* tgt_cipher, mpz_t PLAINTEXT, mpz_t max, mpz_t pol, int m, int deg) {
 	printf("Cracking...");
 	mpz_t LDES; mpz_init(LDES);
 	mpz_t LCLK;	mpz_init(LCLK);						//LFSR for dessimating
@@ -862,7 +844,7 @@ int match_R1( struct CANDIDATE* candidates, struct CANDIDATE* endCandidates, mpz
 				printf("Calculating the Decimated bitsequence and creating ciphertext:\n\n");
 			#endif
 
-			genEncrypt(	CIPHER2, LCLK, LDES );
+			genEncrypt(CIPHER2, LCLK, LDES, PLAINTEXT, m);
 			//printf("\n");
 			//mpz_out_str(stdout, 10, CIPHER2); printf(" "); mpz_out_str(stdout, 10, *tgt_cipher );
 			//mpz_out_str(stdout, 10, CIPHER2);

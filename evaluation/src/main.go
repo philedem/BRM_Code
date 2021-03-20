@@ -40,6 +40,7 @@ func getCands(pol int, m int, k int, i1 int, i2 int, c chan string, wg *sync.Wai
 }
 
 func getCands2(pol int, m int, k int, i1 int, i2 int) {//, c chan string, wg *sync.WaitGroup, bar *progressbar.ProgressBar) {
+//func getCands2(pol int, m int, k int, i1 int, i2 int, c chan string, wg *sync.WaitGroup, bar *progressbar.ProgressBar) {
     r :=  C.brm(C.int(pol), C.int(m), C.int(k), C.int(i1), C.int(i2))
     //var ret string
 
@@ -51,7 +52,6 @@ func getCands2(pol int, m int, k int, i1 int, i2 int) {//, c chan string, wg *sy
 		fmt.Println("BOO")
 
 	}
-	//fmt.Println(r)
 
 	//bar.Add(1)
 	//defer wg.Done()
@@ -68,11 +68,11 @@ func getTotal(min int, max int) int {
 }
 
 func main() {
-	pol := 11
+	pol := 16
 	min_m := 10
-	max_m := 40
-	r1_init := 100
-	r2_init := 100
+	max_m := 60
+	r1_init := 20012
+	r2_init := 32022
 
 	count := 0
 
@@ -84,7 +84,7 @@ func main() {
 	//var result []string 
 
 	// Calculate the total number of jobs to be run
-	getCands2(pol, min_m, max_m, r1_init, r2_init) //, c, &wg, bar)
+	//getCands2(pol, 30, 20, r1_init, r2_init) //, c, &wg, bar)
 
 	fmt.Printf("Testing R1 = %d, R2 = %d, m = %d ... %d, k = 1 ... (m/2) which gives a total of %d runs.\n", r1_init, r2_init, min_m, max_m, total)
 
