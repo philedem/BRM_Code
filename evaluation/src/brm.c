@@ -39,7 +39,7 @@ const int ALPHASIZE = 2;	//Alphabet size, 0 & 1
 //int CLKSTATE;				//Initial state of R1
 //int CSTATE;					//Current state holder
 //mpz_t PLAINTEXT;			//Message to encipher
-mpz_t TEXT;					//Search text
+//mpz_t TEXT;					//Search text
 //mpz_t max;					//Maximum value of the LFSR (all 1's)
 //mpz_t pol;		
 
@@ -64,7 +64,7 @@ struct CANDIDATE {
 mpz_t* genAlphabet( int );					   	//Gen array of the alphabet
 int lfsr_iterate( struct LFSR*);				//Gen next state & output
 void lfsrgen(mpz_t, int, int, mpz_t, uint_least64_t, int, mpz_t*); //Gen LFRS
-mpz_t* arbp_search( mpz_t*, int, int, int );              //Main search function
+mpz_t* arbp_search( mpz_t*, mpz_t, int, int, int );              //Main search function
 mpz_t* genError(int, int);  						   	//Gen init error table
 void genPrefixes( mpz_t*, mpz_t, int );				//Generate the prefixes
 void genEncrypt( mpz_t, mpz_t, mpz_t, mpz_t, int );	        //Encrypt the plaintext
@@ -82,6 +82,7 @@ int brm(int deg, int m, int slen, int CLKSTATE, int SSTATE){
 	mpz_t PLAINTEXT;
 	mpz_t max;
 	mpz_t pol;
+
 	//-----------------------------------------------------------------------------
 	// We start by creating the target cryptosystem and generating the ciphertext.
 	// After the ciphertext has been created we forget the initial variables. 
@@ -143,6 +144,9 @@ int brm(int deg, int m, int slen, int CLKSTATE, int SSTATE){
 
 	mpz_t tmp;		
 	mpz_init( tmp );									// Geneate tmp variable
+
+	mpz_t TEXT; 										// This variable stores the current search text
+	mpz_init(TEXT);
 	
 	uint_least64_t i = 1;								// initial state counter.
 	uint_least64_t ci = 0;								// Candidate indicator.
@@ -157,7 +161,7 @@ int brm(int deg, int m, int slen, int CLKSTATE, int SSTATE){
 		//lfsrgen( TEXT, deg, n, pol, i, 1, B );		// Generate undecimated bitseq TEXT for current initial state
 		lfsrgen( TEXT, deg, n, pol, i, 0, NULL );		// Generate undecimated bitseq TEXT for current initial state
 
-		mpz_t*	MATCH = arbp_search(B, slen, m, n);			// Run the ARBP search on TEXT with slen errors allowed and return matches with CLD and position. 
+		mpz_t*	MATCH = arbp_search(B, TEXT, slen, m, n);			// Run the ARBP search on TEXT with slen errors allowed and return matches with CLD and position. 
 														// TODO; Pass TEXT variable instead of global var. For scalability.
 		int j = 0;
 		while(j < n){											//For each position
@@ -604,7 +608,7 @@ mpz_t* genError(int K, int m) {
 /*-----------------------------------------------------------------------------
  * Perform search on TEXT and PREFIX
 -----------------------------------------------------------------------------*/
-mpz_t* arbp_search(mpz_t* B, int K, int m, int n) {
+mpz_t* arbp_search(mpz_t* B, mpz_t TEXT, int K, int m, int n) {
 	mpz_t tmp1;	
 	mpz_init( tmp1 );									//Tmp variables
 	mpz_t tmp2;		

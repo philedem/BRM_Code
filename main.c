@@ -340,7 +340,6 @@ int main(int argc, char *argv[]){
 	} 
 	else {
 	// 	printf("The actual initial state (%i) is NOT within the set\n", SSTATE);
-		printf("bleh");
 	 	exit(1);
 	}
 	exit(0);
