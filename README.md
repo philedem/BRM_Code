@@ -18,3 +18,4 @@ make
 ./main <polynomial degree> <output length> <errors allowed> <initial state>
 
 make && ./main 11 8 2 1024 
+
