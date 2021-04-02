@@ -79,6 +79,7 @@ int brm(int deg, int m, int slen, int CLKSTATE, int SSTATE){
 	// Variable initialization
 	int n;
 	int CSTATE;
+	char* FNAME;
 	mpz_t PLAINTEXT;
 	mpz_t max;
 	mpz_t pol;
@@ -93,8 +94,8 @@ int brm(int deg, int m, int slen, int CLKSTATE, int SSTATE){
 	slen = slen + 1 ;							//Allowed errors
 	n	= 2*m;										//Search text length 2m
 
-	//FNAME = malloc(60*sizeof(char));					//Filename allocation
-	//sprintf(FNAME, "ciphersearch_L%dM%dK%dI%d_%s.log", deg, m, slen-1, SSTATE, "meh");
+	FNAME = malloc(60*sizeof(char));					//Filename allocation
+	sprintf(FNAME, "./data/%d_%d_%d_%d_%d_candidates.log", deg, m, slen-1, CLKSTATE, SSTATE);
 	
 	mpz_init( max );
 	mpz_setbit(max, deg);								//Set max val, eg 2048 in 2^11
@@ -154,6 +155,9 @@ int brm(int deg, int m, int slen, int CLKSTATE, int SSTATE){
 	int found = 0;										// Indicator to show if the actual intial state was added to the set
 
 	struct CANDIDATE* C = malloc( mpz_get_ui(max) * sizeof(struct CANDIDATE) );
+
+	FILE* fh = fopen(FNAME, "w");						// Open output file for writing
+
 	while( mpz_cmp_ui( max, i ) > 0 ){					// Iterate through all initial states of R2
 		CSTATE = i;										// Current state
 		mpz_set_ui( tmp, i);							// For binary display
@@ -198,15 +202,15 @@ int brm(int deg, int m, int slen, int CLKSTATE, int SSTATE){
 	int u=0;
 	struct CANDIDATE* ptr = C;
 	struct CANDIDATE* endPtr = C + (sizeof(*C)/sizeof(struct CANDIDATE) * mpz_get_ui(max));
-	while ( ptr < endPtr ) {
+	while ( ptr < endPtr ) { // Iterate through all candidates
 		if (ptr->istate == 0){
 			break;
 		}
-		//fprintf(fh, "\n%i,", ptr->istate); mpz_out_str(fh, 2, ptr->X);
+		fprintf(fh, "\n%i,", ptr->istate); mpz_out_str(fh, 2, ptr->X);
 		u++;
 		ptr++;
 	}
-	//fclose( fh );												//Close data file
+	fclose( fh );												//Close data file
 
 	clock_t end = clock();										//Stop runtime timer
 	runtime += (double)(end - begin) / CLOCKS_PER_SEC;
@@ -818,7 +822,7 @@ int match_R1( struct CANDIDATE* candidates, struct CANDIDATE* endCandidates, mpz
 	printf("Cracking...");
 	mpz_t LDES; mpz_init(LDES);
 	mpz_t LCLK;	mpz_init(LCLK);						//LFSR for dessimating
-	mpz_t CIPHER2;	mpz_init( CIPHER2 );					//Gen intercepted ciphertext
+	mpz_t CIPHER2;	mpz_init( CIPHER2 );			//Gen intercepted ciphertext
 	mpz_init(LDES);
 	mpz_init(LCLK);	
 	mpz_init(CIPHER2);
