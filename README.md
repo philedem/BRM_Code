@@ -1,8 +1,21 @@
 # BRM_Code
 Master thesis NTNU
 
-# Dependencies 
-GMPLib
+Reconstruction of the clock sequence in LFSR employing irregular clocking (Binary rate multiplier) by means of bit-parallel search
 
-# Compilation examples
-make debug && ./main 11 8 2 test > log | less
+# Dependencies 
+- GMPLib
+- Go
+
+# Compilation and usage
+## Current GOLANG version
+cd evaluation/src
+go run -a main.go
+
+## Legacy compilation and usage
+
+make
+./main <polynomial degree> <output length> <errors allowed> <initial state>
+
+make && ./main 11 8 2 1024 
+
