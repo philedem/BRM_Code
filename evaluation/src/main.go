@@ -14,6 +14,7 @@ import "C"
 
 import (
 	"fmt"
+	"path/filepath"
 	"time"
 	"os"
 	"os/exec"
@@ -47,12 +48,17 @@ func getCandidates(pol int, m int, k int, i1 int, i2 int, c chan string, wg *syn
     var ret string
 
 	if r == 0 { // Match found
-    	ret = fmt.Sprintf("%d,%d,%d,%d", pol, m, k, r)
+    	ret = fmt.Sprintf("%d,%d,%d", pol, m, k)
     	c <- ret
 	} 
 
 	bar.Add(1)
 	defer wg.Done()
+}
+
+
+func checkCollisions() {
+	fmt.Println("test Colissions")
 }
 
 func getTotal(min int, max int, err_ratio int) int {
@@ -65,13 +71,10 @@ func getTotal(min int, max int, err_ratio int) int {
 	return t
 }
 
-func checkCollisions() {
-	fmt.Println("test Colissions")
-}
 
 func main() {
 	pol := 11													// LFSR Polynomial
-	min_m := 10													// Minimal m-length for search word
+	min_m := 30													// Minimal m-length for search word
 	max_m := 30													// Maximal m-length for search word
 	err_ratio := 3												// Error rate in the form ( m / err_ratio )
 	s1 := rand.NewSource(time.Now().UnixNano())					// Create random source
@@ -80,11 +83,11 @@ func main() {
 	r2_init := r1.Intn(int(math.Exp2(float64(pol))))			// Generate a random initial state for the clocked LFSR (R1)
 	count := 0													// Iteration counter
 	scp_upload := 0												// SCP Upload to remote destination
-
 	data_path := "./data"										// System path to store data files				
 	fname := fmt.Sprintf("%s/%d_%d_%d_%d_%d_%d.log", 			// Logfile name
-		data_path, pol, min_m, max_m, err_ratio, r1_init, r2_init)					
-	if _, err := os.Stat(data_path); os.IsNotExist(err) {		// Check if path already exist
+		data_path, pol, r1_init, r2_init, min_m, max_m, err_ratio)		
+		
+	if _, err := os.Stat(data_path); os.IsNotExist(err) {		// Check if data folder already exist
 		os.Mkdir(data_path, 0666)								// Create folder if not 
 	}
 
@@ -93,22 +96,19 @@ func main() {
 	} else {
 
 	}
-	// fname := 
+
+	//test := C.cipherGen(C.int(pol), C.int(min_m), C.int(10), C.int(100), C.int(100))
+	//fmt.Println(test)
+
+	//return
 
 	total := getTotal(min_m, max_m, err_ratio) // Get total amount of iterations
 	bar := progressbar.Default(int64(total)) // Initialize progressbar
 
 	var wg sync.WaitGroup 
-	c := make(chan string, 1000)
-	//var result []string 
-
-	//for u := 1; u <= 1; u++ {
-	//	getCands2(pol, 60, 10, r1_init, r2_init) //, c, &wg, bar)
-	//}
-	
+	c := make(chan string, 1000)	
 
 	fmt.Printf("Testing R1 = %d, R2 = %d, m = %d ... %d, k = 1 ... (m/%d) which gives a total of %d combinations.\n", r1_init, r2_init, min_m, max_m, err_ratio, total)
-
 
 	f, err :=  os.OpenFile(fname, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0666);
     if err != nil {
@@ -132,8 +132,26 @@ func main() {
 	    f.WriteString(res+"\n")
 	    count++
 	}
-
+	
 	fmt.Printf("%d of %d potentially valid sets found.\n", count, total)
+
+	// At this point we have generated the candidate sets for the given R1 and R2 for all combinations of search word length (m) and errors allowed (m/err_ratio).
+	// Only the candidate sets that contain the actual R2 initial state The candidate sets have been stored in data/ as .cand files.
+	
+	pattern := fmt.Sprintf("%s/%d_%d_%d_*_*.cand", data_path, pol, r1_init, r2_init)
+
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	for _, s := range matches {
+	 	fmt.Println(s)
+	}
+
+	return
+
+
 
 	// Find the (X) lowest relationship c1 (search text length) and c2 (errors allowed) and check them for collisions through a brute force test.
 	// For every relationsship get the corresponding candidates file and check for collissions iteratively.
