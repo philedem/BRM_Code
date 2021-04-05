@@ -48,7 +48,8 @@ struct CANDIDATE {
 //-----------------------------------------------------------------------------
 // FUNCTION DECLARATIONs
 //-----------------------------------------------------------------------------
-int cipherGen(int, int, int, int, int);				// Gen target system
+int search(int, int, int, int, int, int, int);				// Gen target system
+int polyMap(int);
 mpz_t* genAlphabet( int );					   	//Gen array of the alphabet
 int lfsr_iterate( struct LFSR*);				//Gen next state & output
 void lfsrgen(mpz_t, int, int, mpz_t, uint_least64_t, int, mpz_t*); //Gen LFRS
@@ -61,55 +62,22 @@ int match_R1( struct CANDIDATE*, struct CANDIDATE*, mpz_t*, mpz_t, mpz_t, mpz_t,
 char* pb( mpz_t, int, int );					//Print prepending zeros
 
 //-----------------------------------------------------------------------------
-//	MAIN FUNCTION
+//	Function to create a target system by encrypting a given plaintext and returning the cipher
 //-----------------------------------------------------------------------------
-int cipherGen(int deg, int m, int slen, int CLKSTATE, int SSTATE) { // Function to create a target system by encrypting a given plaintext and returning the cipher
-	// Variable initialization
-	int n;
-	int hit;
-	int CSTATE;
-	char* FNAME;
-	mpz_t PLAINTEXT;
-	mpz_t max;
-	mpz_t pol;
+int BRM_Encrypt(int deg, int m, int r1_init, int r2_init, int plain) {  
+	int n = 2*m;											//Search text length 2m
+						
+	mpz_t pol; mpz_init( pol );
+	mpz_set_ui(pol, polyMap(deg));
 
-	//-----------------------------------------------------------------------------
-	// We start by creating the target cryptosystem and generating the ciphertext.
-	// After the ciphertext has been created we forget the initial variables. 
-	//-----------------------------------------------------------------------------
-
-	double runtime = 0.0;
-	clock_t begin = clock();
-	slen = slen + 1 ;									//Allowed errors
-	n	= 2*m;											//Search text length 2m
-	
-	mpz_init( max );
-	mpz_setbit(max, deg);								//Set max val, eg 2048 in 2^11
-	
-	mpz_init( pol );
-	char* t = pb(pol,deg, 0);							//Char array for padding bits
-	
-	if( deg == 11 ){									//Set polynomial based on degree
-		mpz_set_ui(pol, 1209);							//2^11 irreducible polynomial
-	} 
-	else if( deg == 16 ){								
-		mpz_set_ui(pol, 33262);							//2^16 irreducible polynomial
-	}
-	else{
-		printf("Invalid polynomial degree\n");
-		return 0;
-	}
-
-	mpz_init(PLAINTEXT);	
-	mpz_set_ui(PLAINTEXT, 0);							//Default value is 0
-
-	mpz_t*	B	= genAlphabet( ALPHASIZE );				//Generate alphabet
+	mpz_t PLAINTEXT; mpz_init(PLAINTEXT);	
+	mpz_set_ui(PLAINTEXT, plain);							//Default value is 0
 
 	mpz_t LCLK;		mpz_init(LCLK);						//LFSR for dessimating
-	lfsrgen(LCLK, deg, m, pol, CLKSTATE, 0, NULL);		//Clocking LFSR
+	lfsrgen(LCLK, deg, m, pol, r1_init, 0, NULL);		//Clocking LFSR
 
 	mpz_t LDES;		mpz_init(LDES);						//LFSR to be dessimated
-	lfsrgen(LDES, deg, n, pol, SSTATE, 0, NULL);		//Dessimated LFSR
+	lfsrgen(LDES, deg, n, pol, r2_init, 0, NULL);		//Dessimated LFSR
 
 	mpz_t CIPHER;	mpz_init( CIPHER );					//Gen intercepted ciphertext
 	genEncrypt(	CIPHER, LCLK, LDES, PLAINTEXT, m);
@@ -119,59 +87,18 @@ int cipherGen(int deg, int m, int slen, int CLKSTATE, int SSTATE) { // Function 
 	return mpz_get_ui(CIPHER);
 }
 
-int brm(int deg, int m, int slen, int CLKSTATE, int SSTATE){
-	// Variable initialization
-	int n;
+int search(int deg, int m, int slen, int r1_init, int r2_init, int plain, int target) { // Attack
+	int n = 2*m;
 	int hit;
 	int CSTATE;
 	char* FNAME;
-	mpz_t PLAINTEXT;
-	mpz_t max;
-	mpz_t pol;
+	slen = slen + 1;
 
-	//-----------------------------------------------------------------------------
-	// We start by creating the target cryptosystem and generating the ciphertext.
-	// After the ciphertext has been created we forget the initial variables. 
-	//-----------------------------------------------------------------------------
-
-	double runtime = 0.0;
-	clock_t begin = clock();
-	slen = slen + 1 ;									//Allowed errors
-	n	= 2*m;											//Search text length 2m
-	
-	mpz_init( max );
+	mpz_t max; mpz_init( max );
 	mpz_setbit(max, deg);								//Set max val, eg 2048 in 2^11
-	
-	mpz_init( pol );
-	char* t = pb(pol,deg, 0);							//Char array for padding bits
-	
-	if( deg == 11 ){									//Set polynomial based on degree
-		mpz_set_ui(pol, 1209);							//2^11 irreducible polynomial
-	} 
-	else if( deg == 16 ){								
-		mpz_set_ui(pol, 33262);							//2^16 irreducible polynomial
-	}
-	else{
-		printf("Invalid polynomial degree\n");
-		return 0;
-	}
 
-	mpz_init(PLAINTEXT);	
-	mpz_set_ui(PLAINTEXT, 0);							//Default value is 0
-
-	mpz_t*	B	= genAlphabet( ALPHASIZE );				//Generate alphabet
-
-	mpz_t LCLK;		mpz_init(LCLK);						//LFSR for dessimating
-	lfsrgen(LCLK, deg, m, pol, CLKSTATE, 0, NULL);		//Clocking LFSR
-
-	mpz_t LDES;		mpz_init(LDES);						//LFSR to be dessimated
-	lfsrgen(LDES, deg, n, pol, SSTATE, 0, NULL);		//Dessimated LFSR
-
-	mpz_t CIPHER;	mpz_init( CIPHER );					//Gen intercepted ciphertext
-	genEncrypt(	CIPHER, LCLK, LDES, PLAINTEXT, m);
-
-	mpz_clear( LCLK );									//Cleanup LFSRs
-	mpz_clear( LDES );
+	mpz_t pol; mpz_init( pol );	
+	mpz_set_ui(pol, polyMap(deg));
 
 	//-----------------------------------------------------------------------------
 	// At this point, the target (CIPHER) has been created. 
@@ -182,7 +109,10 @@ int brm(int deg, int m, int slen, int CLKSTATE, int SSTATE){
 	// Candidates are stored in an array in memory in the form:
 	// <initial state>, <R2 undeciamted output sequence of length n>
 	//-----------------------------------------------------------------------------
-
+	mpz_t CIPHER;	mpz_init( CIPHER );					//Gen intercepted ciphertext
+	mpz_set_ui(CIPHER, target);
+	
+	mpz_t* B	= genAlphabet( ALPHASIZE );				//Generate alphabet
 	genPrefixes(B, CIPHER, m);							//Generate prefixes for the alphabet
 
 	mpz_t tmp;		
@@ -202,7 +132,6 @@ int brm(int deg, int m, int slen, int CLKSTATE, int SSTATE){
 		CSTATE = i;										// Current state
 		mpz_set_ui( tmp, i);							// For binary display
 
-		//lfsrgen( TEXT, deg, n, pol, i, 1, B );		// Generate undecimated bitseq TEXT for current initial state
 		lfsrgen( TEXT, deg, n, pol, i, 0, NULL );		// Generate undecimated bitseq TEXT for current initial state
 
 		mpz_t*	MATCH = arbp_search(B, TEXT, slen, m, n);			// Run the ARBP search on TEXT with slen errors allowed and return matches with CLD and position. 
@@ -210,20 +139,13 @@ int brm(int deg, int m, int slen, int CLKSTATE, int SSTATE){
 		int j = 0;
 		while(j < n){											//For each position
 			if( mpz_cmp_ui(MATCH[j], m) < 0 ){					//If match is less than m
-				// if( k > 0 && (k%15)==0 ){					//Decoration of stdout
-				// 	printf("\n\t");
-					
-				// }
-				// printf( "\t%d:", j); mpz_out_str(stdout, 10, MATCH[j] );
-				// fprintf( fh, " %d:", j);	mpz_out_str( fh, 10, MATCH[j] );
 				mpz_clear( MATCH[j] );
-				// k++;
 				ci++;											//increment counter for print
 			}
 			j++;												//Next position
 		}
 		if (ci > 0) {											//If matches exist, add state to Candidate matrix.
-			if ( CSTATE == SSTATE ) {							//Indicate that actual init state was added as candidate.
+			if ( CSTATE == r2_init ) {							//Indicate that actual init state was added as candidate.
 				found = 1;	
 			}
 			C[ct].istate = CSTATE;
@@ -245,7 +167,7 @@ int brm(int deg, int m, int slen, int CLKSTATE, int SSTATE){
 	if ( found == 1 ) {
 		// Open file for writing. May need to be moved back up if position of edits are to be written
 		FNAME = malloc(60*sizeof(char));					//Filename allocation
-		sprintf(FNAME, "./data/%d_%d_%d_%d_%d.cand", deg, CLKSTATE, SSTATE, m, slen-1);
+		sprintf(FNAME, "./data/%d_%d_%d_%d_%d.cand", deg, r1_init, r2_init, m, slen-1);
 		FILE* fh = fopen(FNAME, "w");						// Open output file for writing
 
 		while ( ptr < endPtr ) { // Iterate through all candidates
@@ -263,10 +185,10 @@ int brm(int deg, int m, int slen, int CLKSTATE, int SSTATE){
 	}
 
 	if (found==1) { 											//Determine if the actual initial state was included in the chosen set
-		return 0;
+		return u;
 	} 
 	else {
-	 	return 1;
+	 	return 0;
 	}
 	exit(0);
 }
@@ -274,52 +196,9 @@ int brm(int deg, int m, int slen, int CLKSTATE, int SSTATE){
 
 /**############################################################################
  **
- **	FUNCTIONS
+ **	Helper functions
  **
  **#########################################################################**/
-/*-----------------------------------------------------------------------------
- * Prepend bits to a binary representation of a number.
- *	returns a char pointer to an array filled with missing bits 
- * or nothing if it is already full.
------------------------------------------------------------------------------*/
-
-
-char* pb( mpz_t num, int len, int b ){
-	size_t plen = len+1 - mpz_sizeinbase( num, 2 );
-	if( plen == 0 )
-		return "";
-	char* pre = malloc( plen * sizeof(char) );			//Allocate plen length array
-	int i = 0;
-	while( i < plen-1 ){
-		if( b == 1){
-			pre[i++] = '1';
-		}
-		else{
-			pre[i++] = '0';
-		}
-	}
-	pre[i]='\0';
-	return pre;
-}
-
-/*-----------------------------------------------------------------------------
- *	Left shift MPZ_T variable to the left
- *		n number of shift
- *		rop is mpz_t value to shift
------------------------------------------------------------------------------*/
-void mpz_lshift( mpz_t rop, int len ) {
-	mpz_t	tmp;	
-	mpz_init( tmp );	//temp variable
-	int i = len-1;
-	while( i > 0 ){
-		if(mpz_tstbit(rop, i-1) == 1){
-			mpz_setbit( tmp, i );		//set bit if it
-		}
-		i--;
-	}
-	mpz_set(rop, tmp);					//Set original var to tmp
-	mpz_clear(tmp);
-}
 
 /*-----------------------------------------------------------------------------
  * Generates the cipher which then becomes the prefix.
@@ -376,6 +255,66 @@ void genEncrypt(mpz_t rop, mpz_t CLK, mpz_t DES, mpz_t PLAINTEXT, int m){
 	mpz_clear( CIPHER );
 }
 
+/*-----------------------------------------------------------------------------
+ * 
+ * Return an irreducible polynomial based on the given degree.
+ * 
+-----------------------------------------------------------------------------*/
+int polyMap(int deg) {
+	int pol;
+	switch(deg) {
+		case 11:
+			pol = 1209;
+			break;
+		case 16:
+			pol = 33262;
+			break;
+	}
+	return pol;
+}
+
+/*-----------------------------------------------------------------------------
+ * Prepend bits to a binary representation of a number.
+ *	returns a char pointer to an array filled with missing bits 
+ * or nothing if it is already full.
+-----------------------------------------------------------------------------*/
+char* pb( mpz_t num, int len, int b ){
+	size_t plen = len+1 - mpz_sizeinbase( num, 2 );
+	if( plen == 0 )
+		return "";
+	char* pre = malloc( plen * sizeof(char) );			//Allocate plen length array
+	int i = 0;
+	while( i < plen-1 ){
+		if( b == 1){
+			pre[i++] = '1';
+		}
+		else{
+			pre[i++] = '0';
+		}
+	}
+	pre[i]='\0';
+	return pre;
+}
+
+/*-----------------------------------------------------------------------------
+ *	Left shift MPZ_T variable to the left
+ *		n number of shift
+ *		rop is mpz_t value to shift
+-----------------------------------------------------------------------------*/
+void mpz_lshift( mpz_t rop, int len ) {
+	mpz_t	tmp;	
+	mpz_init( tmp );	//temp variable
+	int i = len-1;
+	while( i > 0 ){
+		if(mpz_tstbit(rop, i-1) == 1){
+			mpz_setbit( tmp, i );		//set bit if it
+		}
+		i--;
+	}
+	mpz_set(rop, tmp);					//Set original var to tmp
+	mpz_clear(tmp);
+}
+                        
 /*-----------------------------------------------------------------------------
  *	Generate initial m-bitmasks for the alphabet of ALPHASIZE
  *	Shift-OR Complements 1
@@ -436,7 +375,6 @@ int lfsr_iterate( struct LFSR* lfsr) {
 	mpz_clear( tmp );
 	return ret;											//Return output character
 }
-
 
 /*-----------------------------------------------------------------------------
  * Generate LFSR and output an n-length bitsequence
@@ -535,8 +473,6 @@ void lfsrgen(mpz_t rop, int psize, int olen, mpz_t p,
 	//free( lfsr ); 
 }
 
-
-
 /*-----------------------------------------------------------------------------
  * Creates the prefixes
 -----------------------------------------------------------------------------*/
@@ -582,8 +518,6 @@ void genPrefixes( mpz_t* B, mpz_t P, int m ){
 	mpz_clear( tmp );
 
 }
-
-
 
 /*-----------------------------------------------------------------------------
  * Creates the error list of K-size

@@ -335,11 +335,11 @@ int main(int argc, char *argv[]){
 	// runtime += (double)(end - begin) / CLOCKS_PER_SEC;
 	// printf("\nRuntime: %f seconds\n", runtime);
 	if (found==1) { 											//Determine if the actual initial state was included in the chosen set
-	// 	printf("The actual initial state (%i) is within the set\n", SSTATE);
+		printf("The actual initial state (%i) is within the set\n", SSTATE);
 		exit(0);
 	} 
 	else {
-	// 	printf("The actual initial state (%i) is NOT within the set\n", SSTATE);
+		printf("The actual initial state (%i) is NOT within the set\n", SSTATE);
 	 	exit(1);
 	}
 	exit(0);
