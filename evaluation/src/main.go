@@ -23,20 +23,21 @@ import (
 
 func main() {
 	deg := 11													// LFSR Polynomial
-	min_m := 100													// Minimal m-length for search word
-	max_m := 140													// Maximal m-length for search word
-	err_low := 3.0
-	err_high := 2.0											// Error rate in the form ( m / err_ratio )
+	max_pol := int(math.Exp2(float64(deg)))
+	min_m := 32													// Minimal m-length for search word
+	max_m := 32													// Maximal m-length for search word
+	err_low := 10
+	err_high := 1												// Error rate in the form ( m / err_ratio )
 	rsource := rand.NewSource(time.Now().UnixNano())			// Create random source
     rseed := rand.New(rsource)									// Get random seed
-	r1_init := rseed.Intn(int(math.Exp2(float64(deg))))			// Generate a random initial state for the clocking LFSR (R1)
-	r2_init := rseed.Intn(int(math.Exp2(float64(deg))))			// Generate a random initial state for the clocked LFSR (R2)
+	r1_init := rseed.Intn(max_pol)			// Generate a random initial state for the clocking LFSR (R1)
+	r2_init := rseed.Intn(max_pol)			// Generate a random initial state for the clocked LFSR (R2)
 	plaintext := 0												// Default 0 plaintext
 	count := 0													// Iteration counter
 	scp_upload := 0												// SCP Upload to remote destination
 	data_path := "./data"										// Local system path to store data files
 	var ret string			
-	fname := fmt.Sprintf("%s/%d_%d_%d_%d_%d_%.1f_%.1f.log", 			// Logfile name
+	fname := fmt.Sprintf("%s/%d_%d_%d_%d_%d_%d_%d.log", 			// Logfile name
 		data_path, deg, r1_init, r2_init, min_m, max_m, err_low, err_high)		
 	
 	if (deg != 11 && deg != 16) {
@@ -45,7 +46,7 @@ func main() {
 	} 
 
 	if _, err := os.Stat(data_path); os.IsNotExist(err) {		// Check if data folder already exist
-		os.Mkdir(data_path, 0666)								// Create folder if not 
+		os.Mkdir(data_path, 0777)								// Create folder if not 
 	}
 
 	if scp_upload == 1 {
@@ -57,7 +58,7 @@ func main() {
 
 	total := getTotal(min_m, max_m, err_high, err_low) // Get total amount of iterations
 	bar := progressbar.Default(int64(total)) // Initialize progressbar
-	fmt.Printf("Testing R1 = %d, R2 = %d, m = %d ... %d, k = (m/%.2f) ... (m/%.2f), total of %d combinations.\n", r1_init, r2_init, min_m, max_m, err_low, err_high, total)
+	fmt.Printf("Testing R1 = %d, R2 = %d, m = %d ... %d, k = (m/%d) ... (m/%d), total of %d combinations.\n", r1_init, r2_init, min_m, max_m, err_low, err_high, total)
 	start := time.Now()
 
 	f, err :=  os.OpenFile(fname, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0666);
@@ -69,19 +70,19 @@ func main() {
 	search_end := time.Since(search_start)
 	for i := min_m; i <= max_m; i++ {
 		// Create target ciphertext of length m
-		cipher := C.BRM_Encrypt(C.int(deg), C.int(i), C.int(r1_init), C.int(r1_init), C.int(plaintext)) 
-		
+		cipher := C.BRM_Encrypt(C.int(deg), C.int(i), C.int(r1_init), C.int(r2_init), C.int(plaintext)) 
+		bar.Add(1)
 		// Iterate through increasing error levels, k until we reach the current m / 2
-		for j := (float64(i) / err_low); j <= (float64(i) / err_high); j++ {
-			bar.Add(1)
+		for j := (i / err_low); j <= (i / err_high); j++ {
 			search_start = time.Now()
 			r :=  C.search(C.int(deg), C.int(i), C.int(j), C.int(r1_init), C.int(r2_init), C.int(plaintext), C.int(cipher))
 			search_end = time.Since(search_start)
-			ret = fmt.Sprintf("%d,%d,%d,%d", i, int(j), r, search_end)
-			f.WriteString(ret+"\n")
-			if r > 0 {
+	
+			if int(r) != 0 && int(r) < max_pol-1 { // if more than 0 and less than max candidates were found
+				ret = fmt.Sprintf("%d,%d,%d,%d", i, j, r, search_end)
+				f.WriteString(ret+"\n")
 				count++
-			}
+			} 
 		}
 	}
 
@@ -172,10 +173,10 @@ func checkCollisions() {
 	fmt.Println("test Colissions")
 }
 
-func getTotal(min int, max int, err_high float64, err_low float64) int {
+func getTotal(min int, max int, err_high int, err_low int) int {
 	var t int
 	for i := min; i <= max; i++ {
-		for j := (float64(i) / err_low); j <= (float64(i) / err_high); j++ {
+		for j := (i / err_low); j <= (i / err_high); j++ {
 			t++
 		}
 	}

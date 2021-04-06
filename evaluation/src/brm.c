@@ -95,7 +95,7 @@ int BRM_Encrypt(int deg, int m, int r1_init, int r2_init, int plain) {
 	return mpz_get_ui(CIPHER);
 }
 
-void *search_thread(void *arg){
+void *search_thread(void *arg) {
   	struct CANDIDATE *cand = (struct CANDIDATE *)arg;
 	int n = cand->m*2;
 	mpz_t TEXT; 																// This variable stores the current search text
@@ -135,7 +135,6 @@ int search(int deg, int m, int slen, int r1_init, int r2_init, int plain, int ta
 	int hit;
 	char* FNAME;
 	slen = slen + 1;
-
 	mpz_t max; mpz_init( max );
 	mpz_setbit(max, deg);								//Set max val, eg 2048 in 2^11
 
@@ -157,8 +156,6 @@ int search(int deg, int m, int slen, int r1_init, int r2_init, int plain, int ta
 	mpz_t* B	= genAlphabet( ALPHASIZE );				//Generate alphabet
 	genPrefixes(B, CIPHER, m);							//Generate prefixes for the alphabet
 	
-	//uint_least64_t ci = 0;								// Candidate indicator.
-	//uint_least64_t ct = 0;								// Total candidate counter.
 	int found = 0;										// Indicator to show if the actual intial state was added to the set
 	pthread_t thr[mpz_get_ui(max)];
 	struct CANDIDATE* C = malloc( mpz_get_ui(max) * sizeof(struct CANDIDATE) );
@@ -174,35 +171,6 @@ int search(int deg, int m, int slen, int r1_init, int r2_init, int plain, int ta
       		fprintf(stderr, "error: pthread_create, rc: %d\n", err);
       		return EXIT_FAILURE;
     	}
-		//dotest(&C[ct]);
-		//mpz_t TEXT; 										// This variable stores the current search text
-		//mpz_init(TEXT);
-		// lfsrgen( TEXT, deg, n, pol, i, 0, NULL );				// Generate undecimated bitseq TEXT for current initial state 	
-		// mpz_t*	MATCH = arbp_search(B, TEXT, slen, m, n);		// Run the ARBP search on TEXT with slen errors allowed and return matches with CLD and position. 
-
-		// int j = 0;
-		// while(j < n){											//For each position
-		// 	if( mpz_cmp_ui(MATCH[j], m) < 0 ){					//If match is less than m
-		// 		mpz_clear( MATCH[j] );
-		// 		ci++;											//increment counter for print
-		// 	}
-		// 	j++;												//Next position
-		// }
-
-		// if (ci > 0) {											//If matches exist, add state to Candidate matrix.
-		// 	if ( i == r2_init ) {								//Indicate that the actual R2 init state was added as candidate
-		// 		found = 1;										//(Requires knowledge of R2s initial state and is used for benchmarking puposes).
-		// 	}
-		// 	C[ct].match = true;
-		// 	mpz_init(C[ct].X); mpz_set(C[ct].X, TEXT);
-		// 	ci = 0;
-		// }
-		// else {													//No CLD within error limit found.
-		// 	C[ct].match = false;
-		// 	mpz_init(C[ct].X); mpz_set(C[ct].X, TEXT);			
-		// }
-		//ct++;
-		// free(MATCH);
 	}
 	for (int i = 0; i < mpz_get_ui(max); ++i) {
     	pthread_join(thr[i], NULL);
@@ -219,12 +187,8 @@ int search(int deg, int m, int slen, int r1_init, int r2_init, int plain, int ta
 		FILE* fh = fopen(FNAME, "w");						// Open output file for writing
 
 		while ( ptr < endPtr ) { // Iterate through all candidates
-			if (ptr->match == false){
-				//break;
-			} else {
+			if (ptr->match == true){
 				fprintf(fh, "\n%i,", ptr->istate); mpz_out_str(fh, 2, ptr->X);
-				//printf("%d - %d - %d - %d = %d\n", u, ptr->istate, ptr, endPtr, (endPtr-ptr));
-
 				u++;
 			}
 			//hit = match_R1(C, endPtr, &CIPHER, PLAINTEXT, max, pol, m, deg); // Start brute force attack with intercepted CIPHER and known PLAINTEXT
@@ -232,6 +196,9 @@ int search(int deg, int m, int slen, int r1_init, int r2_init, int plain, int ta
 			ptr++;
 		}
 		fclose( fh );												//Close data file
+		if ( u == 0 || u >= mpz_get_ui(max)-1 ) {			// Delete the irrelevant candidate file
+			remove(FNAME);
+		}
 	}
 
 	if ( found==1 ) {
