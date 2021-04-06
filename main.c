@@ -305,7 +305,7 @@ int main(int argc, char *argv[]){
 	clock_t end = clock();										//Stop runtime timer
 	runtime += (double)(end - begin) / CLOCKS_PER_SEC;
 	//printf("\nRuntime: %f seconds", runtime);	
-	//printf("\nFound %"PRIu64" candidates\n", ct);
+	printf("\nFound %"PRIu64" candidates\n", ct);
 	
 
 

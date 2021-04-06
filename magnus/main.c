@@ -28,11 +28,11 @@
 //-----------------------------------------------------------------------------
 char* FNAME;		//Output filename
 const int ALPHASIZE = 2;//Alphabet size, 0 & 1
-int m = 896; 		//Size of search word
-int n = 1738;		//Size of text
-int slen = 448;		//K value
+int m = 30; 		//Size of search word
+int n = 60;		//Size of text
+int slen = 9;		//K value
 int deg	= 11;		//Polynomial degree
-int SSTATE = 1024;
+int SSTATE = 100;
 int CSTATE = 1;
 mpz_t PLAINTEXT;	//Message to encipher
 mpz_t TEXT;		//Search text
@@ -110,7 +110,7 @@ int main(int argc, char *argv[]){
 	mpz_t*	B	= genAlphabet( ALPHASIZE );					//Generate alphabet
 
 	mpz_t LCLK;		mpz_init(LCLK);									//LFSR for dessimating
-	lfsrgen(LCLK, deg, m, pol,  300, 0, NULL);		//Clocking LFSR
+	lfsrgen(LCLK, deg, m, pol,  100, 0, NULL);		//Clocking LFSR
 	mpz_t LDES;		mpz_init(LDES);									//LFSR to be dessimated
 	lfsrgen(LDES, deg, n, pol, SSTATE, 0, NULL);	//Dessimated LFSR
 
@@ -149,6 +149,8 @@ int main(int argc, char *argv[]){
 	FILE*					fh = fopen(FNAME, "w");				//Open output file for writing
 
 	//While i less than 2^deg
+	int ci = 0;
+	int ct = 0;
 	while( mpz_cmp_ui( max, i ) > 0 ){
 		CSTATE = i;
 		mpz_set_ui( tmp, i);											//For binary display
@@ -204,8 +206,12 @@ int main(int argc, char *argv[]){
 					fprintf( fh, " %d:", j);	mpz_out_str( fh, 10, MATCH[j] );
 					mpz_clear( MATCH[j] );
 					k++;																		//increment counter for print
+					ci++;
 				}
 				j++;																			//Next position
+			}
+			if (ci > 0) {
+				ct++;
 			}
 			fprintf( fh, "\n");
 			printf( "\n\n" );
@@ -224,7 +230,7 @@ int main(int argc, char *argv[]){
 	mpz_clear( B[1] );
 	free( B );																			//Free up memory
 	fclose( fh );																		//Close data file
-	printf("\n\nSoftware done\n");
+	printf("\n\nSoftware done %d\n", ct);
 	return 0;
 }
 
