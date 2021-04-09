@@ -163,7 +163,7 @@ int search(int deg, int m, int slen, int r1_init, int r2_init, int plain, int ta
 	genPrefixes(B, CIPHER, m);							//Generate prefixes for the alphabet
 	
 	int found = 0;										// Indicator to show if the actual intial state was added to the set
-	pthread_t thr[mpz_get_ui(max)-1];
+	pthread_t thr[mpz_get_ui(max)];
 	struct CANDIDATE* C = malloc( mpz_get_ui(max) * sizeof(struct CANDIDATE) );
 	//printf("%d\n",sizeof(struct CANDIDATE) * mpz_get_ui(max));
 	for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
