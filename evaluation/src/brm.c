@@ -163,8 +163,9 @@ int search(int deg, int m, int slen, int r1_init, int r2_init, int plain, int ta
 	genPrefixes(B, CIPHER, m);							//Generate prefixes for the alphabet
 	
 	int found = 0;										// Indicator to show if the actual intial state was added to the set
-	pthread_t thr[mpz_get_ui(max)];
+	pthread_t thr[mpz_get_ui(max)-1];
 	struct CANDIDATE* C = malloc( mpz_get_ui(max) * sizeof(struct CANDIDATE) );
+	//printf("%d\n",sizeof(struct CANDIDATE) * mpz_get_ui(max));
 	for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
 		C[i].deg = deg;
 		C[i].m = m;
@@ -173,6 +174,7 @@ int search(int deg, int m, int slen, int r1_init, int r2_init, int plain, int ta
 		C[i].istate = i+1;
 		C[i].B = B;
 		int err;
+
 		if ((err = pthread_create(&thr[i], NULL, search_thread, &C[i]))) {
       		fprintf(stderr, "error: pthread_create, rc: %d\n", err);
       		return EXIT_FAILURE;
@@ -181,6 +183,7 @@ int search(int deg, int m, int slen, int r1_init, int r2_init, int plain, int ta
 	for (int i = 0; i < mpz_get_ui(max); ++i) {
     	pthread_join(thr[i], NULL);
   	}
+
 	int u=0;
 	found = 1;
 	struct CANDIDATE* ptr = C;
