@@ -107,9 +107,11 @@ func main() {
 	elapsed := time.Since(start)
 	fmt.Println(elapsed)
 
-	// Now move on to validating sets
+	// Now move on to validating sets by eliminating collisions by means of brute force.
+	// We start at the largest set, which is most likely to contain collisions.
+	// If one set is free from collisions, we don't need to check the ones with lower error counts.
 
-	fmt.Printf("\nValidating sets...\n")
+	fmt.Printf("\nChecking for collisions...\n")
 
 	pattern := fmt.Sprintf("%s/%d_%d_%d_*_*.cand", data_path, deg, r1_init, r2_init)
 
@@ -128,10 +130,6 @@ func main() {
 	return
 
 	// Now check for collisions
-
-
-
-
 
 	// Find the (X) lowest relationship c1 (search text length) and c2 (errors allowed) and check them for collisions through a brute force test.
 	// For every relationsship get the corresponding candidates file and check for collissions iteratively.
