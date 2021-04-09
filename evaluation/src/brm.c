@@ -53,6 +53,12 @@ struct CANDIDATE {
 	mpz_t X;		// Undecimated output
 };
 
+struct retcand {
+	struct CANDIDATE* ptr;
+	struct CANDIDATE* endPtr;
+	int u; 
+};
+
 //-----------------------------------------------------------------------------
 // FUNCTION DECLARATIONs
 //-----------------------------------------------------------------------------
