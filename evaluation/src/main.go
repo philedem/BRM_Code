@@ -23,16 +23,15 @@ import (
 	"path/filepath"
 	"math"
 	"math/rand"
-    "github.com/schollz/progressbar/v3"
 )
 
 func main() {
 	deg := 11													// LFSR Polynomial
 	max_pol := int(math.Exp2(float64(deg)))
-	min_m := 32													// Minimal m-length for search word
-	max_m := 32													// Maximal m-length for search word
+	min_m := 64													// Minimal m-length for search word
+	max_m := 64													// Maximal m-length for search word
 	err_low := 10
-	err_high := 1												// Error rate in the form ( m / err_ratio )
+	err_high := 2												// Error rate in the form ( m / err_ratio )
 	rsource := rand.NewSource(time.Now().UnixNano())			// Create random source
     rseed := rand.New(rsource)									// Get random seed
 	r1_init := rseed.Intn(max_pol)			// Generate a random initial state for the clocking LFSR (R1)
@@ -62,7 +61,6 @@ func main() {
 
 
 	total := getTotal(min_m, max_m, err_high, err_low) // Get total amount of iterations
-	bar := progressbar.Default(int64(total)) // Initialize progressbar
 	fmt.Printf("Testing R1 = %d, R2 = %d, m = %d ... %d, k = (m/%d) ... (m/%d), total of %d combinations.\n", r1_init, r2_init, min_m, max_m, err_low, err_high, total)
 	start := time.Now()
 
@@ -78,7 +76,6 @@ func main() {
 	for i := min_m; i <= max_m; i++ {
 		// Create target ciphertext of length m
 		cipher := C.BRM_Encrypt(C.int(deg), C.int(i), C.int(r1_init), C.int(r2_init), C.int(plaintext)) 
-		bar.Add(1)
 		// Iterate through increasing error levels, k until we reach the current m / 2
 		for j := (i / err_low); j <= (i / err_high); j++ {
 			search_start := time.Now()
@@ -112,16 +109,44 @@ func main() {
 	// If one set is free from collisions, we don't need to check the ones with lower error counts.
 
 	fmt.Printf("\nChecking for collisions...\n")
-
-	pattern := fmt.Sprintf("%s/%d_%d_%d_*_*.cand", data_path, deg, r1_init, r2_init)
-
-	matches, err := filepath.Glob(pattern)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	for _, s := range matches {
-	 	fmt.Println(s)
+	
+	for i := min_m; i <= max_m; i++ {
+		cipher := C.BRM_Encrypt(C.int(deg), C.int(i), C.int(r1_init), C.int(r2_init), C.int(plaintext))
+		for j := (i / err_high); j >= (i / err_low); j-- {
+			pattern := fmt.Sprintf("%s/%d_%d_%d_%d_%d.cand", data_path, deg, r1_init, r2_init, i, j)
+			matches, err := filepath.Glob(pattern)
+			if err != nil {
+				fmt.Println("File not present")
+				break
+			}
+			for _, s := range matches {
+				csvfile, err := os.Open(s)
+				if err != nil {
+					log.Fatalln("Couldn't open the csv file", err)
+				}
+				r := csv.NewReader(csvfile)
+				for {
+					// Read each record from csv
+					record, err := r.Read()
+					if err == io.EOF {
+						break
+					}
+					if err != nil {
+						log.Fatal(err)
+					}
+					r2_init, _ := strconv.Atoi(record[0])
+					r2_output, _ := strconv.ParseUint(record[1], 10, 64)
+					//fmt.Println(r2_output)
+					ble := C.match_R1(C.int(r2_init), C.uint64_t(r2_output), C.int(cipher), C.int(plaintext))
+					//fmt.Println(ble)
+					//fmt.Printf("%d, %s\n", r2_init, r2_output)
+					// if r2 == r2_init {
+					// 	return true
+					// }
+				}
+				csvfile.Close()
+			}
+		}
 	}
 
 	elapsed = time.Since(start)
@@ -214,6 +239,8 @@ func candPresent(cname string, r2_init int) bool {
 	csvfile.Close()
 	return false
 }
+
+
 
 func getTotal(min int, max int, err_high int, err_low int) int {
 	var t int
