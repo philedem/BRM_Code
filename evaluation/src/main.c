@@ -33,7 +33,7 @@
 //-----------------------------------------------------------------------------
 // GLOBAL VARIABLES
 //-----------------------------------------------------------------------------
-static const size_t num_threads = 100;
+static const size_t num_threads = 1000;
 static const size_t num_items   = 100;
 const int ALPHASIZE = 2;	//Alphabet size, 0 & 1
 int m;
