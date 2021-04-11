@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <pthread.h>
+#include <threads.h>
 #include <time.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -237,7 +238,7 @@ int search() { // Attack
 	genPrefixes(B, CIPHER, m);							//Generate prefixes for the alphabet
 
 	//pthread_t thr[mpz_get_ui(max)];
-	pthread_t *thr;
+	thrd_t *thr;
     thr = malloc(mpz_get_ui(max) * sizeof *thr);
 
 	struct CANDIDATE* C = malloc( mpz_get_ui(max) * sizeof(struct CANDIDATE) );
@@ -246,13 +247,13 @@ int search() { // Attack
 		C[i].istate = i+1;
 		int err;
 
-		if ((err = pthread_create(&thr[i], NULL, search_thread, &C[i]))) {
+		if ((err = thrd_create(&thr[i], search_thread, &C[i]))) {
       		fprintf(stderr, "error: pthread_create, rc: %d\n", err);
       		return EXIT_FAILURE;
     	}
 	}
 	for (int i = 0; i < mpz_get_ui(max)-1; i++) {
-    	pthread_join(thr[i], NULL);
+    	thrd_join(thr[i], NULL);
   	}
 	free(thr);
 	int u=0;
@@ -293,10 +294,9 @@ int search() { // Attack
 		// Check collisions
 		// Start brute force attack with intercepted CIPHER and known PLAINTEXT
 		printf("Checking collisions \n");
-		//pthread_t thr2[mpz_get_ui(max)];
 		pthread_t *thr2;
   		thr2 = malloc(mpz_get_ui(max) * sizeof *thr2);
-		  
+
 		for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
 			C[i].istate = i+1;
 			int err;
@@ -309,7 +309,6 @@ int search() { // Attack
 			pthread_join(thr2[i], NULL);
 		}
 		free(thr2);
-			// int hit = match_R1(C, endPtr); 
 		return 0;
 	}
 
