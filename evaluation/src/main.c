@@ -252,7 +252,7 @@ int search() { // Attack
 	for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
 		C[i].istate = i+1;
 		int err;
-		//printf("%d\n",i);
+		printf("%d\n",i);
 		while( buffer == 0) {
 			printf("Waiting for resources...\n");
 			sleep(1);
