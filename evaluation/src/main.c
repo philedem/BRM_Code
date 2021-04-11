@@ -248,6 +248,7 @@ int search() { // Attack
 		printf("%d\n",i);
 		if ((err = thrd_create(&thr[i], search_thread, &C[i]))) {
       		fprintf(stderr, "error: thrd_create, rc: %d\n", err);
+			exit(0);
       		return EXIT_FAILURE;
     	}
 	}
