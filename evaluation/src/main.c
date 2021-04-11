@@ -33,7 +33,7 @@
 //-----------------------------------------------------------------------------
 // GLOBAL VARIABLES
 //-----------------------------------------------------------------------------
-static const size_t num_threads = 200;
+static const size_t num_threads = 16;
 const int ALPHASIZE = 2;	//Alphabet size, 0 & 1
 int m;
 int n;
@@ -119,12 +119,12 @@ int main(int argc, char *argv[]){
 	printf("Testing R1 = %d, R2 = %d, m = %d, k = %d\n", R1STATE, R2STATE, m, slen);
 
 	int r;
+	struct timespec start, finish;
+	double elapsed;
+	clock_gettime(CLOCK_MONOTONIC, &start);
 	while (true) {
-		clock_t begin = clock();
 		r = search();
-		clock_t end = clock();
-		double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-		prtinf("%f seconds...\n", time_spent);
+
 		if (r==3) { // Not containing actual R2State
 			printf("Set contains no actual R2STATE... \n");
 			slen ++;
@@ -139,6 +139,12 @@ int main(int argc, char *argv[]){
 			break;
 		}
 	}
+	clock_gettime(CLOCK_MONOTONIC, &finish);
+
+	elapsed = (finish.tv_sec - start.tv_sec);
+	elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
+	printf("%f seconds...\n", elapsed);
+
 	return 0;
 }
 
@@ -170,7 +176,7 @@ void match_R1(void *arg) {
 		if ( mpz_cmp(CIPHER, CIPHER2) == 0 ) { //mpz_get_ui( CIPHER2 ) == mpz_get_ui( CIPHER ) ) {
 			if (cand->istate == R2STATE && i == R1STATE) {
 				printf("\nMatch found for R1 init state %i and R2 init state %i\n", i, cand->istate);
-				exit(0);
+				//exit(0);
 			} else {
 				printf("COLLISION FOUND at R1 init state %i and R2 init state %i\n", i, cand->istate);
 			}
