@@ -71,6 +71,17 @@ struct tpool_work {
 };
 typedef struct tpool_work tpool_work_t;
 
+struct tpool {
+    tpool_work_t    *work_first;
+    tpool_work_t    *work_last;
+    pthread_mutex_t  work_mutex;
+    pthread_cond_t   work_cond;
+    pthread_cond_t   working_cond;
+    size_t           working_cnt;
+    size_t           thread_cnt;
+    bool             stop;
+};
+
 
 //-----------------------------------------------------------------------------
 // FUNCTION DECLARATIONs
@@ -87,6 +98,28 @@ void genEncrypt( mpz_t, mpz_t, mpz_t, mpz_t, int );	        									//Encrypt t
 void mpz_lshift( mpz_t, int );																	//Left shift bin seq by 1
 //int match_R1( struct CANDIDATE*, struct CANDIDATE*);		//Exact match for the output of genEncrypt
 char* pb( mpz_t, int, int );																	//Print prepending zeros
+
+static tpool_work_t *tpool_work_create(thread_func_t func, void *arg)
+{
+    tpool_work_t *work;
+
+    if (func == NULL)
+        return NULL;
+
+    work       = malloc(sizeof(*work));
+    work->func = func;
+    work->arg  = arg;
+    work->next = NULL;
+    return work;
+}
+
+static void tpool_work_destroy(tpool_work_t *work)
+{
+    if (work == NULL)
+        return;
+    free(work);
+}
+
 
 //-----------------------------------------------------------------------------
 //	Function to create a target system by encrypting a given plaintext and returning the cipher
