@@ -79,7 +79,7 @@ mpz_t* genError(int, int);  																   	//Gen init error table
 void genPrefixes( mpz_t*, mpz_t, int );															//Generate the prefixes
 void genEncrypt( mpz_t, mpz_t, mpz_t, mpz_t, int );	        									//Encrypt the plaintext
 void mpz_lshift( mpz_t, int );																	//Left shift bin seq by 1
-int match_R1( struct CANDIDATE*, struct CANDIDATE*);		//Exact match for the output of genEncrypt
+//int match_R1( struct CANDIDATE*, struct CANDIDATE*);		//Exact match for the output of genEncrypt
 char* pb( mpz_t, int, int );																	//Print prepending zeros
 
 //-----------------------------------------------------------------------------
@@ -117,7 +117,7 @@ int main(int argc, char *argv[]){
 
 	mpz_clear( R1SEQ );									//Cleanup LFSRs
 	mpz_clear( R2SEQ );
-	mpz_out_str(stdout, 10, CIPHER); printf("\n");
+	//mpz_out_str(stdout, 10, CIPHER); printf("\n");
 
 	printf("Testing R1 = %d, R2 = %d, m = %d, k = %d\n", R1STATE, R2STATE, m, slen);
 
@@ -140,6 +140,51 @@ int main(int argc, char *argv[]){
 	}
 	return 0;
 
+}
+
+void *match_R1(void *arg) {
+	struct CANDIDATE *cand = (struct CANDIDATE *)arg;
+	mpz_t LCLK;	mpz_init(LCLK);						//LFSR for dessimating
+	mpz_t CIPHER2;	mpz_init( CIPHER2 );			//Gen test ciphertext
+	mpz_init(LCLK);	
+	mpz_init(CIPHER2);
+
+	int i = 0;
+	while (i<mpz_get_ui(max)) { // Iterate through all R1States
+		#if defined DEBUG
+			printf("Generating clocking LFSR (R1) output sequence: \n");
+		#endif
+
+		lfsrgen(LCLK, deg, m, pol, i, 0, NULL);				//Clocking LFSR
+		
+		#if defined DEBUG
+			printf("Calculating the Decimated bitsequence and creating ciphertext:\n\n");
+		#endif
+
+		genEncrypt(CIPHER2, LCLK, cand->X , PLAINTEXT, m);
+		
+		// mpz_out_str(stdout, 16, CIPHER); printf(" - ");
+		// mpz_out_str(stdout, 16, CIPHER2); printf("\t-\t");
+		// printf("%d\t-\t%d\n ", i, cand->istate);
+
+		// Improve matching algorithm.
+		if ( mpz_cmp(CIPHER, CIPHER2) == 0 ) { //mpz_get_ui( CIPHER2 ) == mpz_get_ui( CIPHER ) ) {
+			if (cand->istate == R2STATE && i == R1STATE) {
+				printf("\nMatch found for R1 init state %i and R2 init state %i\n", i, cand->istate);
+				//exit(0);
+			} else {
+				printf("COLLISION FOUND at R1 init state %i and R2 init state %i\n", i, cand->istate);
+			}
+		}
+		i++;
+	}
+
+	mpz_clear(LCLK);
+	mpz_clear(CIPHER2);
+
+	//printf("\nExiting.\n");
+	pthread_exit(NULL);
+	//return 1;
 }
 
 void *search_thread(void *arg) {
@@ -191,7 +236,10 @@ int search() { // Attack
 	B	= genAlphabet( ALPHASIZE );				//Generate alphabet
 	genPrefixes(B, CIPHER, m);							//Generate prefixes for the alphabet
 
-	pthread_t thr[mpz_get_ui(max)];
+	//pthread_t thr[mpz_get_ui(max)];
+	pthread_t *thr;
+    thr = malloc(mpz_get_ui(max) * sizeof *thr);
+
 	struct CANDIDATE* C = malloc( mpz_get_ui(max) * sizeof(struct CANDIDATE) );
 
 	for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
@@ -203,10 +251,10 @@ int search() { // Attack
       		return EXIT_FAILURE;
     	}
 	}
-	for (int i = 0; i < mpz_get_ui(max); i++) {
+	for (int i = 0; i < mpz_get_ui(max)-1; i++) {
     	pthread_join(thr[i], NULL);
   	}
-
+	free(thr);
 	int u=0;
 
 	struct CANDIDATE* ptr = C;
@@ -245,7 +293,23 @@ int search() { // Attack
 		// Check collisions
 		// Start brute force attack with intercepted CIPHER and known PLAINTEXT
 		printf("Checking collisions \n");
-		int hit = match_R1(C, endPtr); 
+		//pthread_t thr2[mpz_get_ui(max)];
+		pthread_t *thr2;
+  		thr2 = malloc(mpz_get_ui(max) * sizeof *thr2);
+		  
+		for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
+			C[i].istate = i+1;
+			int err;
+			if ((err = pthread_create(&thr2[i], NULL, match_R1, &C[i]))) {
+				fprintf(stderr, "error: pthread_create, rc: %d\n", err);
+				return EXIT_FAILURE;
+			}
+		}
+		for (int i = 0; i < mpz_get_ui(max)-1; i++) {
+			pthread_join(thr2[i], NULL);
+		}
+		free(thr2);
+			// int hit = match_R1(C, endPtr); 
 		return 0;
 	}
 
@@ -824,44 +888,4 @@ mpz_t* arbp_search(mpz_t* B, mpz_t TEXT, int K, int m, int n) {
 }
 
 
-int match_R1( struct CANDIDATE* candidates, struct CANDIDATE* endCandidates) {
-	mpz_t LCLK;	mpz_init(LCLK);						//LFSR for dessimating
-	mpz_t CIPHER2;	mpz_init( CIPHER2 );			//Gen test ciphertext
-	mpz_init(LCLK);	
-	mpz_init(CIPHER2);
 
-	while ( candidates < endCandidates ) {
-		int i = 0;
-		while (i<mpz_get_ui(max)) { // Iterate through all R1States
-			#if defined DEBUG
-				printf("Generating clocking LFSR (R1) output sequence: \n");
-			#endif
-	
-			lfsrgen(LCLK, deg, m, pol, i, 0, NULL);				//Clocking LFSR
-			
-			#if defined DEBUG
-				printf("Calculating the Decimated bitsequence and creating ciphertext:\n\n");
-			#endif
-
-			genEncrypt(CIPHER2, LCLK, candidates->X , PLAINTEXT, m);
-			
-			mpz_out_str(stdout, 16, CIPHER); printf(" - ");
-			mpz_out_str(stdout, 16, CIPHER2); printf("\t-\t");
-			printf("%d\t-\t%d\n ", i, candidates->istate);
-
-			// Improve matching algorithm.
-			if ( mpz_get_ui( CIPHER2 ) == mpz_get_ui( CIPHER ) ) { 
-				printf("\nMatch found for R1 init state %i and R2 init state %i", i, candidates->istate);
-				return 0;
-			}
-			i++;
-		}
-		candidates++;
-	}
-	
-	mpz_clear(LCLK);
-	mpz_clear(CIPHER2);
-
-	printf("\nExiting.\n");
-	return 1;
-}
