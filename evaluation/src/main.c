@@ -239,13 +239,13 @@ int search() { // Attack
 
 	thrd_t *thr;
     thr = malloc(mpz_get_ui(max) * sizeof *thr);
-
+	printf("Size: %d  Number: %d \n", sizeof(*thr), mpz_get_ui(max))
 	struct CANDIDATE* C = malloc( mpz_get_ui(max) * sizeof(struct CANDIDATE) );
 
 	for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
 		C[i].istate = i+1;
 		int err;
-		printf("%d\n",i);
+		//printf("%d\n",i);
 		if ((err = thrd_create(&thr[i], search_thread, &C[i]))) {
       		fprintf(stderr, "error: thrd_create, rc: %d\n", err);
 			exit(0);
