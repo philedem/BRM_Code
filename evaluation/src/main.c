@@ -184,7 +184,7 @@ void *match_R1(void *arg) {
 	mpz_clear(CIPHER2);
 
 	//printf("\nExiting.\n");
-	pthread_exit(0);
+	pthread_exit(NULL);
 	//return 1;
 }
 
@@ -217,7 +217,7 @@ int search_thread(void *arg) {
 		mpz_init(cand->X); mpz_set(cand->X, TEXT);			
 	}
 	free(MATCH);
-	thrd_exit(NULL);
+	thrd_exit(0);
 }
 
 int search() { // Attack
