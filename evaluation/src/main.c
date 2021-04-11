@@ -33,6 +33,8 @@
 // GLOBAL VARIABLES
 //-----------------------------------------------------------------------------
 const int ALPHASIZE = 2;	//Alphabet size, 0 & 1
+int THRD_BUFFER = 1000; 
+mtx_t lock;
 int m;
 int n;
 int deg;
@@ -240,16 +242,21 @@ int search() { // Attack
 	thrd_t *thr;
     thr = malloc(mpz_get_ui(max) * sizeof *thr);
 	struct CANDIDATE* C = malloc( mpz_get_ui(max) * sizeof(struct CANDIDATE) );
-
+	int buffer = 4000;
 	for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
 		C[i].istate = i+1;
 		int err;
 		//printf("%d\n",i);
+		while( buffer == 0) {
+			sleep(1);
+		}
 		if ((err = thrd_create(&thr[i], search_thread, &C[i]))) {
       		fprintf(stderr, "error: thrd_create, rc: %d\n", err);
 			exit(0);
       		return EXIT_FAILURE;
-    	}
+    	} else {
+			buffer --;
+		}
 	}
 	for (int i = 0; i < mpz_get_ui(max)-1; i++) {
     	thrd_join(thr[i], NULL);
