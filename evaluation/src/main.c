@@ -244,7 +244,7 @@ int search() { // Attack
     	printf("\n mutex init has failed\n");
         return 1;
     }
-	
+
 	thrd_t *thr;
     thr = malloc(mpz_get_ui(max) * sizeof *thr);
 	struct CANDIDATE* C = malloc( mpz_get_ui(max) * sizeof(struct CANDIDATE) );
@@ -254,6 +254,7 @@ int search() { // Attack
 		int err;
 		//printf("%d\n",i);
 		while( buffer == 0) {
+			printf("Waiting for resources...\n");
 			sleep(1);
 		}
 		if ((err = thrd_create(&thr[i], search_thread, &C[i]))) {
