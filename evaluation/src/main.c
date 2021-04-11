@@ -239,7 +239,7 @@ int search() { // Attack
 
 	thrd_t *thr;
     thr = malloc(mpz_get_ui(max) * sizeof *thr);
-	printf("Size: %d  Number: %d \n", sizeof(*thr), mpz_get_ui(max))
+	printf("Size: %d  Number: %d \n", sizeof(*thr), mpz_get_ui(max));
 	struct CANDIDATE* C = malloc( mpz_get_ui(max) * sizeof(struct CANDIDATE) );
 
 	for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
