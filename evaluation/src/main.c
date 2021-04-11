@@ -188,7 +188,7 @@ void *match_R1(void *arg) {
 	//return 1;
 }
 
-void search_thread(void *arg) {
+void *search_thread(void *arg) {
   	struct CANDIDATE *cand = (struct CANDIDATE *)arg;
 	mpz_t TEXT; 																// This variable stores the current search text
 	mpz_init(TEXT);
@@ -247,7 +247,7 @@ int search() { // Attack
 		C[i].istate = i+1;
 		int err;
 
-		if ((err = thrd_create(&thr[i], search_thread, &C[i]))) {
+		if ((err = thrd_create(&thr[i], &search_thread, &C[i]))) {
       		fprintf(stderr, "error: pthread_create, rc: %d\n", err);
       		return EXIT_FAILURE;
     	}
