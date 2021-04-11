@@ -245,9 +245,9 @@ int search() { // Attack
 	for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
 		C[i].istate = i+1;
 		int err;
-
+		printf("%d\n",i);
 		if ((err = thrd_create(&thr[i], search_thread, &C[i]))) {
-      		fprintf(stderr, "error: thrdd_create, rc: %d\n", err);
+      		fprintf(stderr, "error: thrd_create, rc: %d\n", err);
       		return EXIT_FAILURE;
     	}
 	}
