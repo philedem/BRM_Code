@@ -120,7 +120,11 @@ int main(int argc, char *argv[]){
 
 	int r;
 	while (true) {
+		clock_t begin = clock();
 		r = search();
+		clock_t end = clock();
+		double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+		prtinf("%f seconds...\n", time_spent);
 		if (r==3) { // Not containing actual R2State
 			printf("Set contains no actual R2STATE... \n");
 			slen ++;
