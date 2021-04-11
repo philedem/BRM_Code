@@ -188,7 +188,7 @@ void *match_R1(void *arg) {
 	//return 1;
 }
 
-void *search_thread(void *arg) {
+void search_thread(void *arg) {
   	struct CANDIDATE *cand = (struct CANDIDATE *)arg;
 	mpz_t TEXT; 																// This variable stores the current search text
 	mpz_init(TEXT);
