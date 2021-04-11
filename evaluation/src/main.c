@@ -28,7 +28,7 @@
 #include <stdint.h>     //64b Int
 #include <inttypes.h>   //64b int
 #include <gmp.h>        //arbitrary integer size
-
+#include "tpool.h"
 
 //-----------------------------------------------------------------------------
 // GLOBAL VARIABLES
