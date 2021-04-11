@@ -17,6 +17,7 @@
 // INCLUDES
 //-----------------------------------------------------------------------------
 #include <stdio.h>
+#include <unistd.h>
 #include <stdbool.h>
 #include <pthread.h>
 #include <threads.h>
@@ -238,7 +239,12 @@ int search() { // Attack
 	
 	B	= genAlphabet( ALPHASIZE );				//Generate alphabet
 	genPrefixes(B, CIPHER, m);							//Generate prefixes for the alphabet
-
+  	
+	if (mtx_init(&lock, mtx_plain) != 0) {
+    	printf("\n mutex init has failed\n");
+        return 1;
+    }
+	
 	thrd_t *thr;
     thr = malloc(mpz_get_ui(max) * sizeof *thr);
 	struct CANDIDATE* C = malloc( mpz_get_ui(max) * sizeof(struct CANDIDATE) );
