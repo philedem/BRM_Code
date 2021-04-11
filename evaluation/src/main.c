@@ -192,9 +192,7 @@ int match_R1(void *arg) {
 }
 
 int search_thread(void *arg) {
-	mtx_lock(&lock);
-	THRD_BUFFER--;
-	mtx_unlock(&lock);
+
   	struct CANDIDATE *cand = (struct CANDIDATE *)arg;
 	mpz_t TEXT; 																// This variable stores the current search text
 	mpz_init(TEXT);
@@ -266,7 +264,11 @@ int search() { // Attack
       		fprintf(stderr, "error: thrd_create, rc: %d\n", err);
 			exit(0);
       		return EXIT_FAILURE;
-    	} 
+    	} else {
+			mtx_lock(&lock);
+			THRD_BUFFER--;
+			mtx_unlock(&lock);
+		}
 	}
 	for (int i = 0; i < mpz_get_ui(max)-1; i++) {
     	thrd_join(thr[i], NULL);
