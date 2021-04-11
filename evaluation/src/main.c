@@ -184,7 +184,7 @@ void *match_R1(void *arg) {
 	mpz_clear(CIPHER2);
 
 	//printf("\nExiting.\n");
-	pthread_exit(NULL);
+	pthread_exit(0);
 	//return 1;
 }
 
