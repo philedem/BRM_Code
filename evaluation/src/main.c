@@ -266,9 +266,7 @@ int search() { // Attack
       		fprintf(stderr, "error: thrd_create, rc: %d\n", err);
 			exit(0);
       		return EXIT_FAILURE;
-    	} else {
-			buffer --;
-		}
+    	} 
 	}
 	for (int i = 0; i < mpz_get_ui(max)-1; i++) {
     	thrd_join(thr[i], NULL);
