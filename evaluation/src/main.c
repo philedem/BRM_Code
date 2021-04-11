@@ -237,7 +237,6 @@ int search() { // Attack
 	B	= genAlphabet( ALPHASIZE );				//Generate alphabet
 	genPrefixes(B, CIPHER, m);							//Generate prefixes for the alphabet
 
-	//pthread_t thr[mpz_get_ui(max)];
 	thrd_t *thr;
     thr = malloc(mpz_get_ui(max) * sizeof *thr);
 
@@ -248,7 +247,7 @@ int search() { // Attack
 		int err;
 
 		if ((err = thrd_create(&thr[i], search_thread, &C[i]))) {
-      		fprintf(stderr, "error: pthread_create, rc: %d\n", err);
+      		fprintf(stderr, "error: thrdd_create, rc: %d\n", err);
       		return EXIT_FAILURE;
     	}
 	}
