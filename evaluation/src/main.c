@@ -260,7 +260,7 @@ int search() { // Attack
 		printf("%d\n",i);
 		while( THRD_BUFFER == 0) {
 			printf("Waiting for resources...\n");
-			sleep(1);
+			sleep(3);
 		}
 		if ((err = thrd_create(&thr[i], search_thread, &C[i]))) {
       		fprintf(stderr, "error: thrd_create, rc: %d\n", err);
