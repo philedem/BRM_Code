@@ -20,7 +20,7 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <pthread.h>
-#include <threads.h>
+//#include <threads.h>
 #include <time.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -33,9 +33,9 @@
 //-----------------------------------------------------------------------------
 // GLOBAL VARIABLES
 //-----------------------------------------------------------------------------
+static const size_t num_threads = 100;
+static const size_t num_items   = 100;
 const int ALPHASIZE = 2;	//Alphabet size, 0 & 1
-int THRD_BUFFER = 1000; 
-mtx_t lock;
 int m;
 int n;
 int deg;
@@ -63,9 +63,6 @@ struct CANDIDATE {
 	bool match;
 	mpz_t X;		// Undecimated output
 };
-
-
-
 
 //-----------------------------------------------------------------------------
 // FUNCTION DECLARATIONs
@@ -140,10 +137,9 @@ int main(int argc, char *argv[]){
 		}
 	}
 	return 0;
-
 }
 
-int match_R1(void *arg) {
+void *match_R1(void *arg) {
 	struct CANDIDATE *cand = (struct CANDIDATE *)arg;
 	mpz_t LCLK;	mpz_init(LCLK);						//LFSR for dessimating
 	mpz_t CIPHER2;	mpz_init( CIPHER2 );			//Gen test ciphertext
@@ -184,11 +180,11 @@ int match_R1(void *arg) {
 	mpz_clear(CIPHER2);
 
 	//printf("\nExiting.\n");
-	thrd_exit(0);
+	pthread_exit(NULL);
 	//return 1;
 }
 
-int search_thread(void *arg) {
+void search_thread(void *arg) {
 
   	struct CANDIDATE *cand = (struct CANDIDATE *)arg;
 	mpz_t TEXT; 																// This variable stores the current search text
@@ -218,10 +214,7 @@ int search_thread(void *arg) {
 		mpz_init(cand->X); mpz_set(cand->X, TEXT);			
 	}
 	free(MATCH);
-	// mtx_lock(&lock);
-	// THRD_BUFFER++;
-	// mtx_unlock(&lock);
-	thrd_exit(0);
+	//pthread_exit(NULL);
 }
 
 int search() { // Attack
@@ -240,36 +233,33 @@ int search() { // Attack
 	
 	B	= genAlphabet( ALPHASIZE );				//Generate alphabet
 	genPrefixes(B, CIPHER, m);							//Generate prefixes for the alphabet
-  	
-	if (mtx_init(&lock, mtx_plain) != 0) {
-    	printf("\n mutex init has failed\n");
-        return 1;
-    }
 
-	thrd_t *thr;
+	//TESTING
+	tpool_t *tm;
+	tm   = tpool_create(num_threads);
+
+	pthread_t *thr;
     thr = malloc(mpz_get_ui(max) * sizeof *thr);
 	struct CANDIDATE* C = malloc( mpz_get_ui(max) * sizeof(struct CANDIDATE) );
+
 	for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
 		C[i].istate = i+1;
 		int err;
 		//printf("%d\n",i);
-		while( THRD_BUFFER == 0) {
-			printf("Waiting for resources...\n");
-			sleep(3);
-		}
-		if ((err = thrd_create(&thr[i], search_thread, &C[i]))) {
-      		fprintf(stderr, "error: thrd_create, rc: %d\n", err);
-			exit(0);
-      		return EXIT_FAILURE;
-    	} else {
-			//mtx_lock(&lock);
-			THRD_BUFFER--;
-			//mtx_unlock(&lock);
-		}
+		tpool_add_work(tm, search_thread, &C[i]);
+		// if ((err = pthread_create(&thr[i], NULL, search_thread, &C[i]))) {
+      	// 	fprintf(stderr, "error: pthread_create, rc: %d\n", err);
+		// 	exit(0);
+      	// 	return EXIT_FAILURE;
+    	// }
 	}
-	for (int i = 0; i < mpz_get_ui(max)-1; i++) {
-    	thrd_join(thr[i], NULL);
-  	}
+	printf("Waiting\n");
+	tpool_wait(tm);
+	printf("Done waiting\n");
+	tpool_destroy(tm);
+	// for (int i = 0; i < mpz_get_ui(max)-1; i++) {
+    // 	pthread_join(thr[i], NULL);
+  	// }
 	free(thr);
 	int u=0;
 
@@ -307,28 +297,27 @@ int search() { // Attack
 		return 3;
 	} else  {
 		// Check collisions
+		exit(0);
 		// Start brute force attack with intercepted CIPHER and known PLAINTEXT
 		printf("Checking collisions \n");
-		thrd_t *thr2;
+		pthread_t *thr2;
   		thr2 = malloc(mpz_get_ui(max) * sizeof *thr2);
 
 		for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
 			C[i].istate = i+1;
 			int err;
-			if ((err = thrd_create(&thr2[i], match_R1, &C[i]))) {
-				fprintf(stderr, "error: thrd_create, rc: %d\n", err);
+			if ((err = pthread_create(&thr2[i], NULL, match_R1, &C[i]))) {
+				fprintf(stderr, "error: pthread_create, rc: %d\n", err);
 				return EXIT_FAILURE;
 			}
 		}
 		for (int i = 0; i < mpz_get_ui(max)-1; i++) {
-			thrd_join(thr2[i], NULL);
+			pthread_join(thr2[i], NULL);
 		}
 		free(thr2);
 		return 0;
 	}
-
 }
-
 
 /**############################################################################
  **
