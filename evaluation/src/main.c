@@ -64,11 +64,13 @@ struct CANDIDATE {
 	mpz_t X;		// Undecimated output
 };
 
-struct retcand {
-	struct CANDIDATE* ptr;
-	struct CANDIDATE* endPtr;
-	int u; 
+struct tpool_work {
+    thread_func_t      func;
+    void              *arg;
+    struct tpool_work *next;
 };
+typedef struct tpool_work tpool_work_t;
+
 
 //-----------------------------------------------------------------------------
 // FUNCTION DECLARATIONs
