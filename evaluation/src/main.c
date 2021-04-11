@@ -192,6 +192,9 @@ int match_R1(void *arg) {
 }
 
 int search_thread(void *arg) {
+	mtx_lock(&lock);
+	THRD_BUFFER--;
+	mtx_unlock(&lock);
   	struct CANDIDATE *cand = (struct CANDIDATE *)arg;
 	mpz_t TEXT; 																// This variable stores the current search text
 	mpz_init(TEXT);
@@ -220,6 +223,9 @@ int search_thread(void *arg) {
 		mpz_init(cand->X); mpz_set(cand->X, TEXT);			
 	}
 	free(MATCH);
+	mtx_lock(&lock);
+	THRD_BUFFER++;
+	mtx_unlock(&lock);
 	thrd_exit(0);
 }
 
@@ -248,12 +254,11 @@ int search() { // Attack
 	thrd_t *thr;
     thr = malloc(mpz_get_ui(max) * sizeof *thr);
 	struct CANDIDATE* C = malloc( mpz_get_ui(max) * sizeof(struct CANDIDATE) );
-	int buffer = 4000;
 	for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
 		C[i].istate = i+1;
 		int err;
 		printf("%d\n",i);
-		while( buffer == 0) {
+		while( THRD_BUFFER == 0) {
 			printf("Waiting for resources...\n");
 			sleep(1);
 		}
