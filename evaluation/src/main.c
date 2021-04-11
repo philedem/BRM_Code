@@ -221,9 +221,9 @@ int search_thread(void *arg) {
 		mpz_init(cand->X); mpz_set(cand->X, TEXT);			
 	}
 	free(MATCH);
-	mtx_lock(&lock);
-	THRD_BUFFER++;
-	mtx_unlock(&lock);
+	// mtx_lock(&lock);
+	// THRD_BUFFER++;
+	// mtx_unlock(&lock);
 	thrd_exit(0);
 }
 
