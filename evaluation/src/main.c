@@ -265,9 +265,9 @@ int search() { // Attack
 			exit(0);
       		return EXIT_FAILURE;
     	} else {
-			mtx_lock(&lock);
+			//mtx_lock(&lock);
 			THRD_BUFFER--;
-			mtx_unlock(&lock);
+			//mtx_unlock(&lock);
 		}
 	}
 	for (int i = 0; i < mpz_get_ui(max)-1; i++) {
