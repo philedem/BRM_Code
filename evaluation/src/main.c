@@ -261,9 +261,7 @@ int search() { // Attack
       	// 	return EXIT_FAILURE;
     	// }
 	}
-	printf("Waiting\n");
 	tpool_wait(tm);
-	printf("Done waiting\n");
 	tpool_destroy(tm);
 	// for (int i = 0; i < mpz_get_ui(max)-1; i++) {
     // 	pthread_join(thr[i], NULL);
@@ -316,20 +314,10 @@ int search() { // Attack
 			C[i].istate = i+1;
 			tpool_add_work(tm, match_R1, &C[i]);
 
-			// int err;
-			// if ((err = pthread_create(&thr2[i], NULL, match_R1, &C[i]))) {
-			// 	fprintf(stderr, "error: pthread_create, rc: %d\n", err);
-			// 	return EXIT_FAILURE;
-			// }
 		}
-		printf("Waiting\n");
 		tpool_wait(tm);
-		printf("Done waiting\n");
 		tpool_destroy(tm);
-		// for (int i = 0; i < mpz_get_ui(max)-1; i++) {
-		// 	pthread_join(thr2[i], NULL);
-		// }
-		// free(thr2);
+
 		return 0;
 	}
 }
