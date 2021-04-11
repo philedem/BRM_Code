@@ -33,7 +33,7 @@
 //-----------------------------------------------------------------------------
 // GLOBAL VARIABLES
 //-----------------------------------------------------------------------------
-static const size_t num_threads = 1000;
+static const size_t num_threads = 200;
 const int ALPHASIZE = 2;	//Alphabet size, 0 & 1
 int m;
 int n;
@@ -138,7 +138,7 @@ int main(int argc, char *argv[]){
 	return 0;
 }
 
-void *match_R1(void *arg) {
+void match_R1(void *arg) {
 	struct CANDIDATE *cand = (struct CANDIDATE *)arg;
 	mpz_t LCLK;	mpz_init(LCLK);						//LFSR for dessimating
 	mpz_t CIPHER2;	mpz_init( CIPHER2 );			//Gen test ciphertext
@@ -150,7 +150,6 @@ void *match_R1(void *arg) {
 		#if defined DEBUG
 			printf("Generating clocking LFSR (R1) output sequence: \n");
 		#endif
-
 		lfsrgen(LCLK, deg, m, pol, i, 0, NULL);				//Clocking LFSR
 		
 		#if defined DEBUG
@@ -167,7 +166,7 @@ void *match_R1(void *arg) {
 		if ( mpz_cmp(CIPHER, CIPHER2) == 0 ) { //mpz_get_ui( CIPHER2 ) == mpz_get_ui( CIPHER ) ) {
 			if (cand->istate == R2STATE && i == R1STATE) {
 				printf("\nMatch found for R1 init state %i and R2 init state %i\n", i, cand->istate);
-				//exit(0);
+				exit(0);
 			} else {
 				printf("COLLISION FOUND at R1 init state %i and R2 init state %i\n", i, cand->istate);
 			}
@@ -179,7 +178,7 @@ void *match_R1(void *arg) {
 	mpz_clear(CIPHER2);
 
 	//printf("\nExiting.\n");
-	pthread_exit(NULL);
+	//pthread_exit(NULL);
 	//return 1;
 }
 
@@ -237,13 +236,13 @@ int search() { // Attack
 	tpool_t *tm;
 	tm   = tpool_create(num_threads);
 
-	pthread_t *thr;
-    thr = malloc(mpz_get_ui(max) * sizeof *thr);
+	// pthread_t *thr;
+    // thr = malloc(mpz_get_ui(max) * sizeof *thr);
 	struct CANDIDATE* C = malloc( mpz_get_ui(max) * sizeof(struct CANDIDATE) );
 
 	for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
 		C[i].istate = i+1;
-		int err;
+		// int err;
 		//printf("%d\n",i);
 		tpool_add_work(tm, search_thread, &C[i]);
 		// if ((err = pthread_create(&thr[i], NULL, search_thread, &C[i]))) {
@@ -259,7 +258,7 @@ int search() { // Attack
 	// for (int i = 0; i < mpz_get_ui(max)-1; i++) {
     // 	pthread_join(thr[i], NULL);
   	// }
-	free(thr);
+
 	int u=0;
 
 	struct CANDIDATE* ptr = C;
@@ -282,8 +281,6 @@ int search() { // Attack
 	}
 
 	fclose( fh );												//Close data file
-	//mpz_out_str(stdout, 10, max);
-	//printf("\n");
 
 	if ( u == 0 ) { // Zero matches, empty dataset
 		remove(FNAME);
@@ -296,24 +293,33 @@ int search() { // Attack
 		return 3;
 	} else  {
 		// Check collisions
-		exit(0);
 		// Start brute force attack with intercepted CIPHER and known PLAINTEXT
 		printf("Checking collisions \n");
-		pthread_t *thr2;
-  		thr2 = malloc(mpz_get_ui(max) * sizeof *thr2);
+
+		// pthread_t *thr2;
+  		// thr2 = malloc(mpz_get_ui(max) * sizeof *thr2);
+
+		tpool_t *tm;
+		tm   = tpool_create(num_threads);
 
 		for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
 			C[i].istate = i+1;
-			int err;
-			if ((err = pthread_create(&thr2[i], NULL, match_R1, &C[i]))) {
-				fprintf(stderr, "error: pthread_create, rc: %d\n", err);
-				return EXIT_FAILURE;
-			}
+			tpool_add_work(tm, match_R1, &C[i]);
+
+			// int err;
+			// if ((err = pthread_create(&thr2[i], NULL, match_R1, &C[i]))) {
+			// 	fprintf(stderr, "error: pthread_create, rc: %d\n", err);
+			// 	return EXIT_FAILURE;
+			// }
 		}
-		for (int i = 0; i < mpz_get_ui(max)-1; i++) {
-			pthread_join(thr2[i], NULL);
-		}
-		free(thr2);
+		printf("Waiting\n");
+		tpool_wait(tm);
+		printf("Done waiting\n");
+		tpool_destroy(tm);
+		// for (int i = 0; i < mpz_get_ui(max)-1; i++) {
+		// 	pthread_join(thr2[i], NULL);
+		// }
+		// free(thr2);
 		return 0;
 	}
 }
