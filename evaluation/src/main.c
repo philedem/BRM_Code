@@ -109,7 +109,7 @@ int main(int argc, char *argv[]){
 	n = 2*m;											//Search text length 2m
 
 	if (slen >= m) {
-		printf("Error: Errors cannot be higher than search word (m)...");
+		printf("Error: Errors cannot be higher than search word (m)...\n");
 		return 1;
 	}
 
@@ -119,10 +119,10 @@ int main(int argc, char *argv[]){
 	mpz_init( max );
 	mpz_setbit(max, deg);								//Set max val, eg 2048 in 2^11
 	if (R1STATE > mpz_get_ui(max)) {
-		printf("Error: R1 initial state (%d) is higher than LFSR capacity (%lu)", R1STATE, mpz_get_ui(max));
+		printf("Error: R1 initial state (%d) is higher than LFSR capacity (%lu)\n", R1STATE, mpz_get_ui(max));
 		return 1;
 	} else if (R2STATE > mpz_get_ui(max)) {
-		printf("Error: R2 initial state (%d) is higher than LFSR capacity (%lu)", R2STATE, mpz_get_ui(max));
+		printf("Error: R2 initial state (%d) is higher than LFSR capacity (%lu)\n", R2STATE, mpz_get_ui(max));
 		return 1;
 	}
 		
