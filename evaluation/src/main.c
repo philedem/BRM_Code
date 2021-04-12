@@ -118,7 +118,7 @@ int main(int argc, char *argv[]){
 	mpz_clear( R2SEQ );
 	//mpz_out_str(stdout, 10, CIPHER); printf("\n");
 
-	printf("Testing R1 = %d, R2 = %d, m = %d, k = %d\n", R1STATE, R2STATE, m, slen);
+	printf("Testing R1 = %d, R2 = %d, m = %d, k = %d, CPUs=%zu\n", R1STATE, R2STATE, m, slen, num_threads);
 
 	int r;
 	struct timespec start, finish;
