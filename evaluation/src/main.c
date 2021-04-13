@@ -35,7 +35,10 @@
 // GLOBAL VARIABLES
 //-----------------------------------------------------------------------------
 size_t num_threads = 16;	// Generally set to # of vCPUs in cloud instances
-const int ALPHASIZE = 2;	//Alphabet size, 0 & 1
+const int ALPHASIZE = 2;	// Alphabet size, 0 & 1
+tpool_t *tm;
+int col_acceptance;
+int col;
 int m;
 int n;
 int deg;
@@ -90,8 +93,8 @@ int main(int argc, char *argv[]){
 	//------------------------------------------------------------
 	// Parameter initialization and validation
 	//------------------------------------------------------------
-	if( argc != 7 ){	      							//Check that required input parameters are met
-		printf("Incorrect number of arguments\nUsage: ./main <polynomial degree> <search word length> <errors> <init state R1> <init state R2> <# CPUs>\n");
+	if( argc != 9 ){	      							//Check that required input parameters are met
+		printf("Incorrect number of arguments\nUsage: ./main <polynomial degree> <search word length> <search text length> <errors> <init state R1> <init state R2> <collision acceptance> <# CPUs>\n");
 		return 1;
 	}
 
@@ -102,11 +105,17 @@ int main(int argc, char *argv[]){
 
 	deg = atoi( argv[1] );
 	m = atoi( argv[2] );
-	slen = atoi( argv[3] )+1;
-	R1STATE = atoi( argv[4] );
-	R2STATE = atoi( argv[5] );
-	num_threads = atoi( argv[6] );
-	n = 2*m;											//Search text length 2m
+	n = atoi( argv[3] );
+	slen = atoi( argv[4] )+1;
+	R1STATE = atoi( argv[5] );
+	R2STATE = atoi( argv[6] );
+	col_acceptance = atoi( argv[7] );
+	num_threads = atoi( argv[8] );
+	if (n<2*m) {
+		printf("Search text must be at least 2 * m...\n");
+		return 1;
+	}
+	//n = 2*m;											//Search text length 2m
 
 	if (slen >= m) {
 		printf("Error: Errors cannot be higher than search word (m)...\n");
@@ -139,7 +148,7 @@ int main(int argc, char *argv[]){
 	genEncrypt(	CIPHER, R1SEQ, R2SEQ, PLAINTEXT, m);
 
 	mpz_clear( R1SEQ );									//Cleanup LFSRs
-	mpz_clear( R2SEQ );
+	//mpz_clear( R2SEQ );
 
 
 
@@ -152,22 +161,30 @@ int main(int argc, char *argv[]){
 	while (true) {
 		r = search();
 
-		if ( r >= 3 ) { // Not containing actual R2State
-			printf("[k=%d] FAILED: Set of %d/%lu contains no actual R2STATE... \n", slen, r, mpz_get_ui(max));
+		if ( r >= 1 ) { // Not containing actual R2State
+			printf("[k=%d] FAILED: Set of %d/%lu contains no actual R2STATE... \n", slen, r, mpz_get_ui(max)); // CHEAT
 			slen ++;
 		} else if ( r == -2 ) {
 			printf("[k=%d] FAILED: Too many candidates... \n", slen);
-			slen ++;
+			// m++;
+			// mpz_init(R1SEQ);						// 
+			// lfsrgen(R1SEQ, deg, m, pol, R1STATE, 0, NULL);		// Generate R1 output sequence
+			// mpz_clear(CIPHER);
+			// mpz_init( CIPHER );									//Gen intercepted ciphertext
+			// genEncrypt(	CIPHER, R1SEQ, R2SEQ, PLAINTEXT, m);
+			break;
 		} else if ( r == -1 ) {
 			printf("[k=%d] FAILED: Zero candidates... \n", slen);
 			slen ++;
 		} else if ( r == -3 ) {
-			printf("[k=%d] FAILED: Collisions found...\n", slen);
-			slen ++;
+			printf("[k=%d] FAILED: Collisions found... Exiting\n", slen);
+			//m++;
+			break;
+			//len ++;
 		} else {
 			printf("[k=%d] SUCCESS!\n", slen);
 			slen ++;
-			//break;
+			break;
 		}
 		if ( slen == m ) {
 			break;
@@ -209,12 +226,15 @@ void match_R1(void *arg) {
 
 		// Improve matching algorithm.
 		if ( mpz_cmp(CIPHER, CIPHER2) == 0 ) { //mpz_get_ui( CIPHER2 ) == mpz_get_ui( CIPHER ) ) {
-			if (cand->istate == R2STATE && i == R1STATE) {
-				printf("\t - MATCH FOUND for R1 init state %i and R2 init state %i\n", i, cand->istate);
+			if (cand->istate == R2STATE && i == R1STATE) { // CHEATING
+				printf("\t - ACTUAL INIT STATES FOUND for R1 init state %i and R2 init state %i\n", i, cand->istate);
 				//exit(0);
 			} else {
 				printf("\t - COLLISION FOUND at R1 init state %i and R2 init state %i\n", i, cand->istate);
-				cand->collisions ++;
+				//run function to terminate all match_R1 instances.
+				col ++;
+				cand->collisions++;
+				//tpool_destroy(tm);
 			}
 		}
 		i++;
@@ -275,7 +295,7 @@ int search() { // Attack
 	B	= genAlphabet( ALPHASIZE );				//Generate alphabet
 	genPrefixes(B, CIPHER, m);							//Generate prefixes for the alphabet
 
-	tpool_t *tm;
+	//tpool_t *tm;
 	tm   = tpool_create(num_threads);
 
 	struct CANDIDATE* C = malloc( mpz_get_ui(max) * sizeof(struct CANDIDATE) );
@@ -287,7 +307,6 @@ int search() { // Attack
 	}
 	tpool_wait(tm);
 	tpool_destroy(tm);
-
 
 	int u=0;
 
@@ -329,9 +348,9 @@ int search() { // Attack
 		printf("[k=%d] Set of %d/%lu contains actual R2STATE! \n", slen, u, mpz_get_ui(max));
 		printf("Checking for collisions... This may take a long time depending on parameters. \n");
 
-		tpool_t *tm;
+		//tpool_t *tm;
 		tm   = tpool_create(num_threads);
-
+		col = 0;
 		for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
 			C[i].istate = i+1;
 			tpool_add_work(tm, match_R1, &C[i]);
@@ -339,13 +358,18 @@ int search() { // Attack
 		tpool_wait(tm);
 		tpool_destroy(tm);
 
-		struct CANDIDATE* ptr = C;
-		while ( ptr < endPtr ) { // Iterate through all candidates
-			if ( ptr->collisions > 0 ){
-				return -3;
-			}
-			ptr++;
+		if (col > 0) {
+			return -3;
 		}
+
+		// struct CANDIDATE* ptr = C;
+		// while ( ptr < endPtr ) { // Iterate through all candidates
+		// 	if ( ptr->collisions > 0 ){
+				
+		// 		return -3;
+		// 	}
+		// 	ptr++;
+		// }
 		return 0;
 	}
 }
