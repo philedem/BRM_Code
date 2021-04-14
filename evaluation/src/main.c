@@ -85,6 +85,86 @@ void mpz_lshift( mpz_t, int );																	//Left shift bin seq by 1
 //int match_R1( struct CANDIDATE*, struct CANDIDATE*);		//Exact match for the output of genEncrypt
 char* pb( mpz_t, int, int );																	//Print prepending zeros
 
+
+void match_R1(void *arg) {
+	struct CANDIDATE *cand = (struct CANDIDATE *)arg;
+	mpz_t LCLK;	mpz_init(LCLK);						//LFSR for dessimating
+	mpz_t CIPHER2;	mpz_init( CIPHER2 );			//Gen test ciphertext
+	mpz_init(LCLK);	
+	mpz_init(CIPHER2);
+
+	int i = 0;
+	int c = 0;
+	while (i<mpz_get_ui(max)) { // Iterate through all R1States
+		#if defined DEBUG
+			printf("Generating clocking LFSR (R1) output sequence: \n");
+		#endif
+		lfsrgen(LCLK, deg, m, pol, i, 0, NULL);				//Clocking LFSR
+		
+		#if defined DEBUG
+			printf("Calculating the Decimated bitsequence and creating ciphertext:\n\n");
+		#endif
+
+		genEncrypt(CIPHER2, LCLK, cand->X , PLAINTEXT, m);
+		
+		// mpz_out_str(stdout, 16, CIPHER); printf(" - ");
+		// mpz_out_str(stdout, 16, CIPHER2); printf("\n");
+		// printf("%d\t-\t%d\n ", i, cand->istate);
+
+		// Improve matching algorithm.
+		if ( mpz_cmp(CIPHER, CIPHER2) == 0 ) { //mpz_get_ui( CIPHER2 ) == mpz_get_ui( CIPHER ) ) {
+			if (cand->istate == R2STATE && i == R1STATE) { // CHEATING
+				//printf("\t - ACTUAL INIT STATES FOUND for R1 init state %i and R2 init state %i\n", i, cand->istate);
+				//exit(0);
+			} else {
+				//printf("\t - COLLISION FOUND at R1 init state %i and R2 init state %i\n", i, cand->istate);
+				//run function to terminate all match_R1 instances.
+				col ++;
+				cand->collisions++;
+				//tpool_destroy(tm);
+			}
+		}
+		i++;
+	}
+
+	mpz_clear(LCLK);
+	mpz_clear(CIPHER2);
+
+}
+
+void search_thread(void *arg) {
+
+  	struct CANDIDATE *cand = (struct CANDIDATE *)arg;
+	mpz_t TEXT; 																// This variable stores the current search text
+	mpz_init(TEXT);
+	int ci = 0;
+
+	lfsrgen( TEXT, deg, n, pol, cand->istate, 0, NULL );								// Generate undecimated bitseq TEXT for current initial state 
+
+	mpz_t*	MATCH = arbp_search(B, TEXT, slen, m, n);			// Run the ARBP search on TEXT with slen errors allowed and return matches with CLD and position. 
+
+	int j = 0;
+	while(j < n){																//For each position
+		if( mpz_cmp_ui(MATCH[j], m) < 0 ){								//If match is less than m
+			mpz_clear( MATCH[j] );
+			ci++;																//increment counter for print
+		}
+		j++;																	//Next position
+	}
+
+	if (ci > 0) {											//If matches exist, add state to Candidate matrix.
+		cand->match = true;
+		mpz_init(cand->X); mpz_set(cand->X, TEXT);
+		ci = 0;
+	}
+	else {	
+		cand->match = false;
+		mpz_init(cand->X); mpz_set(cand->X, TEXT);			
+	}
+	free(MATCH);
+	//pthread_exit(NULL);
+}
+
 //-----------------------------------------------------------------------------
 //	Function to create a target system by encrypting a given plaintext and returning the cipher
 //-----------------------------------------------------------------------------
@@ -148,48 +228,154 @@ int main(int argc, char *argv[]){
 	genEncrypt(	CIPHER, R1SEQ, R2SEQ, PLAINTEXT, m);
 
 	mpz_clear( R1SEQ );									//Cleanup LFSRs
-	//mpz_clear( R2SEQ );
+	mpz_clear( R2SEQ );
 
-
-
-	printf("Testing Pol.deg = %d, R1 = %d, R2 = %d, m = %d, k = %d...m-1, CPUs=%zu\n", deg, R1STATE, R2STATE, m, slen, num_threads);
+	//printf("Testing Pol.deg = %d, R1 = %d, R2 = %d, m = %d, k = %d...m-1, CPUs=%zu\n", deg, R1STATE, R2STATE, m, slen, num_threads);
 
 	int r;
 	struct timespec start, finish;
 	double elapsed;
 	clock_gettime(CLOCK_MONOTONIC, &start);
-	while (true) {
-		r = search();
+	//while (true) {
 
-		if ( r >= 1 ) { // Not containing actual R2State
-			printf("[k=%d] FAILED: Set of %d/%lu contains no actual R2STATE... \n", slen, r, mpz_get_ui(max)); // CHEAT
-			slen ++;
-		} else if ( r == -2 ) {
-			printf("[k=%d] FAILED: Too many candidates... \n", slen);
-			// m++;
-			// mpz_init(R1SEQ);						// 
-			// lfsrgen(R1SEQ, deg, m, pol, R1STATE, 0, NULL);		// Generate R1 output sequence
-			// mpz_clear(CIPHER);
-			// mpz_init( CIPHER );									//Gen intercepted ciphertext
-			// genEncrypt(	CIPHER, R1SEQ, R2SEQ, PLAINTEXT, m);
-			break;
-		} else if ( r == -1 ) {
-			printf("[k=%d] FAILED: Zero candidates... \n", slen);
-			slen ++;
-		} else if ( r == -3 ) {
-			printf("[k=%d] FAILED: Collisions found... Exiting\n", slen);
-			//m++;
-			break;
-			//len ++;
-		} else {
-			printf("[k=%d] SUCCESS!\n", slen);
-			slen ++;
-			break;
-		}
-		if ( slen == m ) {
-			break;
-		}
+
+	//-----------------------------------------------------------------------------
+	// At this point, the target (CIPHER) has been created. 
+	// The known-plaintext attack starts here.
+	// TODO; Separate this from main function to enable multithreading.
+	//
+	// Step ONE: Generate prefixes and run ARBP search and choose candidates for R2
+	// Candidates are stored in an array in memory in the form:
+	// <initial state>, <R2 undeciamted output sequence of length n>
+	//-----------------------------------------------------------------------------
+	char* FNAME;
+	int found;
+
+	B	= genAlphabet( ALPHASIZE );				//Generate alphabet
+	genPrefixes(B, CIPHER, m);							//Generate prefixes for the alphabet
+
+	//tpool_t *tm;
+	tm   = tpool_create(num_threads);
+
+	struct CANDIDATE* C = malloc( mpz_get_ui(max) * sizeof(struct CANDIDATE) );
+
+	for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
+		C[i].istate = i+1;
+		tpool_add_work(tm, search_thread, &C[i]);
+
 	}
+	tpool_wait(tm);
+	tpool_destroy(tm);
+
+	int u=0;
+
+	struct CANDIDATE* ptr = C;
+	struct CANDIDATE* endPtr = C + (sizeof(*C)/sizeof(struct CANDIDATE) * mpz_get_ui(max));
+
+	// Open file for writing. May need to be moved back up if position of edits are to be written
+	FNAME = malloc(60*sizeof(char));					//Filename allocation
+	sprintf(FNAME, "./data/%d_%d_%d_%d_%d.cand", deg, m, slen-1, R1STATE, R2STATE);
+	FILE* fh = fopen(FNAME, "w");						// Open output file for writing
+
+	while ( ptr < endPtr ) { // Iterate through all candidates
+		if (ptr->match == true){
+			fprintf(fh, "\n%i,", ptr->istate); mpz_out_str(fh, 62, ptr->X);
+			if (ptr->istate == R2STATE) {
+				found = 1;
+				fprintf(fh, "%s", "[!]");
+			}
+
+			u++;
+		}
+		ptr++;
+	}
+
+	fclose( fh );												//Close data file
+
+	if ( u == 0 ) { // Zero matches, empty dataset
+		remove(FNAME);
+		printf("%d,%d",-1,u);
+		return -1;
+	} else if( u >= mpz_get_ui(max)-1 ) {	 // Full dataset, all candidates
+		remove(FNAME);
+		printf("%d,%d",-2,u);
+		return -2;
+	} else if ( found != 1 ) { // Dataset not containing the actual candidate (cheat)
+		remove(FNAME);
+		printf("%d,%d",u,u);
+		return u;
+	} else  {
+		// Check collisions
+		// Start brute force attack with intercepted CIPHER and known PLAINTEXT
+		// printf("[k=%d] Set of %d/%lu contains actual R2STATE! \n", slen, u, mpz_get_ui(max));
+		// printf("Checking for collisions... This may take a long time depending on parameters. \n");
+
+		//tpool_t *tm;
+		tm   = tpool_create(num_threads);
+		col = 0;
+		for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
+			C[i].istate = i+1;
+			tpool_add_work(tm, match_R1, &C[i]);
+		}
+		tpool_wait(tm);
+		tpool_destroy(tm);
+
+		if (col > 0) {
+			printf("%d,%d",-3,u);
+			return -3;
+		} else {
+			printf("%d,%d",0,u);
+		}
+
+		// struct CANDIDATE* ptr = C;
+		// while ( ptr < endPtr ) { // Iterate through all candidates
+		// 	if ( ptr->collisions > 0 ){
+				
+		// 		return -3;
+		// 	}
+		// 	ptr++;
+		// }
+		return 0;
+	}	
+		// r = search();
+		// printf("%d", r);
+	// 	if ( r >= 1 ) { // Not containing actual R2State
+	// 		//printf("[k=%d] FAILED: Set of %d/%lu contains no actual R2STATE... \n", slen, r, mpz_get_ui(max)); // CHEAT
+	// 		printf("%d",r);
+	// 		//slen ++;
+	// 	} else if ( r == -2 ) {
+	// 		printf("%d",r);
+
+	// 		//printf("[k=%d] FAILED: Too many candidates... \n", slen);
+	// 		// m++;
+	// 		// mpz_init(R1SEQ);						// 
+	// 		// lfsrgen(R1SEQ, deg, m, pol, R1STATE, 0, NULL);		// Generate R1 output sequence
+	// 		// mpz_clear(CIPHER);
+	// 		// mpz_init( CIPHER );									//Gen intercepted ciphertext
+	// 		// genEncrypt(	CIPHER, R1SEQ, R2SEQ, PLAINTEXT, m);
+	// 		//break;
+	// 	} else if ( r == -1 ) {
+	// 		printf("%d",r);
+	// 		//printf("[k=%d] FAILED: Zero candidates... \n", slen);
+	// 		//slen ++;
+	// 	} else if ( r == -3 ) {
+	// 		printf("%d",r);
+	// 		//printf("[k=%d] FAILED: Collisions found... Exiting\n", slen);
+	// 		//m++;
+	// 		//break;
+	// 		//len ++;
+	// 	} else {
+	// 		printf("%d",r);
+	// 		//printf("[k=%d] SUCCESS!\n", slen);
+	// 		//slen ++;
+	// 		//break;
+	// 	}
+	// 	//if ( slen == m ) {
+	// 		//break;
+	// 	//}
+	// //}
+			exit(r);
+
 	clock_gettime(CLOCK_MONOTONIC, &finish);
 
 	elapsed = (finish.tv_sec - start.tv_sec);
@@ -199,84 +385,6 @@ int main(int argc, char *argv[]){
 	return 0;
 }
 
-void match_R1(void *arg) {
-	struct CANDIDATE *cand = (struct CANDIDATE *)arg;
-	mpz_t LCLK;	mpz_init(LCLK);						//LFSR for dessimating
-	mpz_t CIPHER2;	mpz_init( CIPHER2 );			//Gen test ciphertext
-	mpz_init(LCLK);	
-	mpz_init(CIPHER2);
-
-	int i = 0;
-	int c = 0;
-	while (i<mpz_get_ui(max)) { // Iterate through all R1States
-		#if defined DEBUG
-			printf("Generating clocking LFSR (R1) output sequence: \n");
-		#endif
-		lfsrgen(LCLK, deg, m, pol, i, 0, NULL);				//Clocking LFSR
-		
-		#if defined DEBUG
-			printf("Calculating the Decimated bitsequence and creating ciphertext:\n\n");
-		#endif
-
-		genEncrypt(CIPHER2, LCLK, cand->X , PLAINTEXT, m);
-		
-		// mpz_out_str(stdout, 16, CIPHER); printf(" - ");
-		// mpz_out_str(stdout, 16, CIPHER2); printf("\n");
-		// printf("%d\t-\t%d\n ", i, cand->istate);
-
-		// Improve matching algorithm.
-		if ( mpz_cmp(CIPHER, CIPHER2) == 0 ) { //mpz_get_ui( CIPHER2 ) == mpz_get_ui( CIPHER ) ) {
-			if (cand->istate == R2STATE && i == R1STATE) { // CHEATING
-				printf("\t - ACTUAL INIT STATES FOUND for R1 init state %i and R2 init state %i\n", i, cand->istate);
-				//exit(0);
-			} else {
-				printf("\t - COLLISION FOUND at R1 init state %i and R2 init state %i\n", i, cand->istate);
-				//run function to terminate all match_R1 instances.
-				col ++;
-				cand->collisions++;
-				//tpool_destroy(tm);
-			}
-		}
-		i++;
-	}
-
-	mpz_clear(LCLK);
-	mpz_clear(CIPHER2);
-
-}
-
-void search_thread(void *arg) {
-
-  	struct CANDIDATE *cand = (struct CANDIDATE *)arg;
-	mpz_t TEXT; 																// This variable stores the current search text
-	mpz_init(TEXT);
-	int ci = 0;
-
-	lfsrgen( TEXT, deg, n, pol, cand->istate, 0, NULL );								// Generate undecimated bitseq TEXT for current initial state 
-
-	mpz_t*	MATCH = arbp_search(B, TEXT, slen, m, n);			// Run the ARBP search on TEXT with slen errors allowed and return matches with CLD and position. 
-
-	int j = 0;
-	while(j < n){																//For each position
-		if( mpz_cmp_ui(MATCH[j], m) < 0 ){								//If match is less than m
-			mpz_clear( MATCH[j] );
-			ci++;																//increment counter for print
-		}
-		j++;																	//Next position
-	}
-
-	if (ci > 0) {											//If matches exist, add state to Candidate matrix.
-		cand->match = true;
-		mpz_init(cand->X); mpz_set(cand->X, TEXT);
-		ci = 0;
-	}
-	else {	
-		cand->match = false;
-		mpz_init(cand->X); mpz_set(cand->X, TEXT);			
-	}
-	free(MATCH);
-	//pthread_exit(NULL);
-}
 
 int search() { // Attack
 	char* FNAME;
@@ -345,8 +453,8 @@ int search() { // Attack
 	} else  {
 		// Check collisions
 		// Start brute force attack with intercepted CIPHER and known PLAINTEXT
-		printf("[k=%d] Set of %d/%lu contains actual R2STATE! \n", slen, u, mpz_get_ui(max));
-		printf("Checking for collisions... This may take a long time depending on parameters. \n");
+		// printf("[k=%d] Set of %d/%lu contains actual R2STATE! \n", slen, u, mpz_get_ui(max));
+		// printf("Checking for collisions... This may take a long time depending on parameters. \n");
 
 		//tpool_t *tm;
 		tm   = tpool_create(num_threads);
