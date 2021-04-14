@@ -274,7 +274,7 @@ int main(int argc, char *argv[]){
 
 	// Open file for writing. May need to be moved back up if position of edits are to be written
 	FNAME = malloc(60*sizeof(char));					//Filename allocation
-	sprintf(FNAME, "./data/%d_%d_%d_%d_%d.cand", deg, m, slen-1, R1STATE, R2STATE);
+	sprintf(FNAME, "./data/%d_%d_%d_%d_%d_%d.cand", deg, m, n, slen-1, R1STATE, R2STATE);
 	FILE* fh = fopen(FNAME, "w");						// Open output file for writing
 
 	while ( ptr < endPtr ) { // Iterate through all candidates
