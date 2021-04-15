@@ -22,7 +22,6 @@
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <time.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>     //strlen
@@ -64,7 +63,6 @@ struct LFSR {
 struct CANDIDATE {
 	int istate;		// R2 initial state
 	bool match;
-	int collisions;
 	mpz_t X;		// Undecimated output
 };
 
@@ -95,7 +93,7 @@ void match_R1(void *arg) {
 
 	int i = 0;
 	int c = 0;
-	while (i<mpz_get_ui(max)) { // Iterate through all R1States
+	while (i<mpz_get_ui(max) && col <= col_acceptance ) { // Iterate through all R1States
 		#if defined DEBUG
 			printf("Generating clocking LFSR (R1) output sequence: \n");
 		#endif
@@ -106,21 +104,17 @@ void match_R1(void *arg) {
 		#endif
 
 		genEncrypt(CIPHER2, LCLK, cand->X , PLAINTEXT, m);
-		
-		// mpz_out_str(stdout, 16, CIPHER); printf(" - ");
-		// mpz_out_str(stdout, 16, CIPHER2); printf("\n");
-		// printf("%d\t-\t%d\n ", i, cand->istate);
 
 		// Improve matching algorithm.
 		if ( mpz_cmp(CIPHER, CIPHER2) == 0 ) { //mpz_get_ui( CIPHER2 ) == mpz_get_ui( CIPHER ) ) {
 			if (cand->istate == R2STATE && i == R1STATE) { // CHEATING
-				//printf("\t - ACTUAL INIT STATES FOUND for R1 init state %i and R2 init state %i\n", i, cand->istate);
+				printf("\t - ACTUAL INIT STATES FOUND for R1 init state %i and R2 init state %i\n", i, cand->istate);
 				//exit(0);
 			} else {
-				//printf("\t - COLLISION FOUND at R1 init state %i and R2 init state %i\n", i, cand->istate);
+				printf("\t - COLLISION FOUND at R1 init state %i and R2 init state %i\n", i, cand->istate);
 				//run function to terminate all match_R1 instances.
 				col ++;
-				cand->collisions++;
+				//cand->collisions++;
 				//tpool_destroy(tm);
 			}
 		}
@@ -233,9 +227,6 @@ int main(int argc, char *argv[]){
 	//printf("Testing Pol.deg = %d, R1 = %d, R2 = %d, m = %d, k = %d...m-1, CPUs=%zu\n", deg, R1STATE, R2STATE, m, slen, num_threads);
 
 	int r;
-	struct timespec start, finish;
-	double elapsed;
-	clock_gettime(CLOCK_MONOTONIC, &start);
 	//while (true) {
 
 
@@ -375,12 +366,6 @@ int main(int argc, char *argv[]){
 	// 	//}
 	// //}
 			exit(r);
-
-	clock_gettime(CLOCK_MONOTONIC, &finish);
-
-	elapsed = (finish.tv_sec - start.tv_sec);
-	elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
-	printf("%f seconds...\n", elapsed);
 
 	return 0;
 }
