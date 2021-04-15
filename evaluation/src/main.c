@@ -107,7 +107,7 @@ void match_R1(void *arg) {
 
 		// Improve matching algorithm.
 		if ( mpz_cmp(CIPHER, CIPHER2) == 0 ) { //mpz_get_ui( CIPHER2 ) == mpz_get_ui( CIPHER ) ) {
-			if (cand->istate == R2STATE && i == R1STATE) { // CHEATING
+			if (cand->istate == R2STATE && i == R1STATE) { // CHEATING. However, in a real approach, the collision indicator will work as a counter and indicate if there are more than 1 hit.
 				printf("\t - ACTUAL INIT STATES FOUND for R1 init state %i and R2 init state %i\n", i, cand->istate);
 				//exit(0);
 			} else {
