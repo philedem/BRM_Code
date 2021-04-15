@@ -69,9 +69,8 @@ func main() {
 					}
 					search_start := time.Now()
 					cmd := exec.Command("./main", strconv.Itoa(deg), strconv.Itoa(x), strconv.Itoa(n), strconv.Itoa(i), strconv.Itoa(r1), strconv.Itoa(r2), strconv.Itoa(col_accept), strconv.Itoa(cpus))
-					duration := time.Since(search_start)
 					b, _ := cmd.Output()
-	
+					duration := time.Since(search_start)
 					s := strings.Split(string(b), ",")
 					res, _ := strconv.Atoi(s[0])
 					cands, _ := strconv.Atoi(s[1])
