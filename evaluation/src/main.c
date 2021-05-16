@@ -261,12 +261,6 @@ int main(int argc, char *argv[]){
 	}
 	tpool_wait(tm);
 	tpool_destroy(tm);
-	
-	gettimeofday(&end, NULL);
-    long seconds = (end.tv_sec - start.tv_sec);
-    long micros = ((seconds * 1000000) + end.tv_usec) - (start.tv_usec);
-    printf("\nThe elapsed time is %d seconds and %d micros after R2 generation\n", seconds, micros);
-
 
 	int u=0;
 
@@ -290,8 +284,15 @@ int main(int argc, char *argv[]){
 		}
 		ptr++;
 	}
+
+	// Instrumentation	
 	printf("%d",u);
+	gettimeofday(&end, NULL);
+    long seconds = (end.tv_sec - start.tv_sec);
+    long micros = ((seconds * 1000000) + end.tv_usec) - (start.tv_usec);
+    printf("\nThe elapsed time is %ld seconds and %ld micros after R2 generation\n", seconds, micros);
 	return u;
+	// End Instrumentation
 
 	fclose( fh );												//Close data file
 
