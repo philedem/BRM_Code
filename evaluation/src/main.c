@@ -77,7 +77,7 @@ mpz_t* genAlphabet( int );					   													//Gen array of the alphabet
 int lfsr_iterate( struct LFSR*);																//Gen next state & output
 void lfsrgen(mpz_t, int, int, mpz_t, uint_least64_t, int, mpz_t*); 								//Gen LFRS
 mpz_t* arbp_search( mpz_t*, mpz_t, int, int, int );       								       	//Main search function
-mpz_t* genError(int, int);  																   	//Gen init error table
+mpz_t* genError(int);  																   	//Gen init error table
 void genPrefixes( mpz_t*, mpz_t, int );															//Generate the prefixes
 void genEncrypt( mpz_t, mpz_t, mpz_t, mpz_t, int );	        									//Encrypt the plaintext
 void mpz_lshift( mpz_t, int );																	//Left shift bin seq by 1
@@ -763,7 +763,7 @@ void genPrefixes( mpz_t* B, mpz_t P, int m ){
 /*-----------------------------------------------------------------------------
  * Creates the error list of K-size
 -----------------------------------------------------------------------------*/
-mpz_t* genError(int K, int m) {
+mpz_t* genError(int K) {
 	mpz_t*	R	= malloc( K*sizeof(mpz_t) );		//Allocate memory for array
 	#if defined DEBUG
 		printf("Gen error R[%d..%d]\n", 0, K-1);
@@ -826,7 +826,7 @@ mpz_t* arbp_search(mpz_t* B, mpz_t TEXT, int K, int m, int n) {
 		}
 		mpz_set(del, R[0]);
 	#endif
-	
+
 	mpz_t oldR, newR;									//Create and init variables
 	mpz_init( oldR );
 	mpz_init( newR );
