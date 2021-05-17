@@ -286,12 +286,12 @@ int main(int argc, char *argv[]){
 	}
 
 	// Instrumentation	
-	printf("%d",u);
-	gettimeofday(&end, NULL);
-    long seconds = (end.tv_sec - start.tv_sec);
-    long micros = ((seconds * 1000000) + end.tv_usec) - (start.tv_usec);
-    printf("\nThe elapsed time is %ld seconds and %ld micros after R2 generation\n", seconds, micros);
-	return u;
+	// printf("%d",u);
+	// gettimeofday(&end, NULL);
+    // long seconds = (end.tv_sec - start.tv_sec);
+    // long micros = ((seconds * 1000000) + end.tv_usec) - (start.tv_usec);
+    // printf("\nThe elapsed time is %ld seconds and %ld micros after R2 generation\n", seconds, micros);
+	// return u;
 	// End Instrumentation
 
 	fclose( fh );												//Close data file
@@ -318,21 +318,25 @@ int main(int argc, char *argv[]){
 		// printf("Checking for collisions... This may take a long time depending on parameters. \n");
 
 		//tpool_t *tm;
-		tm   = tpool_create(num_threads);
-		col = 0;
-		for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
-			C[i].istate = i+1;
-			tpool_add_work(tm, match_R1, &C[i]);
-		}
-		tpool_wait(tm);
-		tpool_destroy(tm);
+		
 
-		if (col > 0) {
-			printf("%d,%d",-3,u);
-			return -3;
-		} else {
-			printf("%d,%d",0,u);
-		}
+		// tm   = tpool_create(num_threads);
+		// col = 0;
+		// for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
+		// 	C[i].istate = i+1;
+		// 	tpool_add_work(tm, match_R1, &C[i]);
+		// }
+		// tpool_wait(tm);
+		// tpool_destroy(tm);
+
+		// if (col > 0) {
+		// 	printf("%d,%d",-3,u);
+		// 	return -3;
+		// } else {
+		// 	printf("%d,%d",0,u);
+		// }
+		// --- END The following was omitted for tests for Results 5
+		printf("%d,%d",0,u); // Remove when reverting the above exclusion
 
 		// struct CANDIDATE* ptr = C;
 		// while ( ptr < endPtr ) { // Iterate through all candidates

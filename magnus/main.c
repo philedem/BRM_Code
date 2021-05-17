@@ -33,7 +33,7 @@ int n = 60;		//Size of text
 int slen = 9;		//K value
 int deg	= 11;		//Polynomial degree
 int SSTATE = 100;
-int CSTATE = 1;
+int CSTATE = 100;
 mpz_t PLAINTEXT;	//Message to encipher
 mpz_t TEXT;		//Search text
 

@@ -20,11 +20,11 @@
 #include <time.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <sys/time.h>
 #include <string.h>     //strlen
 #include <stdint.h>     //64b Int
 #include <inttypes.h>   //64b int
 #include <gmp.h>        //arbitrary integer size
-
 
 //-----------------------------------------------------------------------------
 // GLOBAL VARIABLES
@@ -86,8 +86,9 @@ int main(int argc, char *argv[]){
 		printf("Incorrect number of arguments\nUsage: ./main <polynomial> <search word length> <errors> <init state R1> <init state R2>\n");
 		return 1;
 	}
-	double runtime = 0.0;
-	clock_t begin = clock();
+
+	struct timeval start, end;
+	gettimeofday(&start, NULL);
 
 	deg = atoi( argv[1] );								//Polynomial degree
 	m		= atoi( argv[2] );							//Search word length
@@ -159,14 +160,14 @@ int main(int argc, char *argv[]){
 	mpz_t CIPHER;	mpz_init( CIPHER );					//Gen intercepted ciphertext
 	genEncrypt(	CIPHER, LCLK, LDES );
 
-	mpz_clear( LCLK );									//Cleanup LFSRs
-	mpz_clear( LDES );
-
+	//mpz_clear( LCLK );									//Cleanup LFSRs
+	//mpz_clear( LDES );
+	
 	#if defined DEBUG
 	printf( "Setup:" );
-	printf( "\n\tPOLYNOMIAL:\t%s", t);		mpz_out_str(stdout, 2, pol);
+	printf( "\n\tPOLYNOMIAL:\t");		mpz_out_str(stdout, 2, pol);
 	free(t);	t = pb(PLAINTEXT, m, 0);
-	printf( "\n\tPLAINTEXT:\t%s", t);	mpz_out_str(stdout, 2, PLAINTEXT);
+	printf( "\n\tPLAINTEXT:\t%s", t);	mpz_out_str(stdout, 2, PLAINTEXT); 
 	free(t);	t = pb(LCLK, m, 0);
 	printf( "\n\tLFSR R1 SEQ:\t%s", t);	mpz_out_str(stdout, 2, LCLK);
 	free(t);	t = pb(LDES, n, 0);
@@ -175,6 +176,7 @@ int main(int argc, char *argv[]){
 	printf( "\n\tCIPHERTEXT:\t%s", t);	mpz_out_str(stdout, 2, CIPHER);
 	free(t);	t = pb(B[0], m, 0);
 	#endif
+
 
 	//-----------------------------------------------------------------------------
 	// At this point, the target (CIPHER) has been created. 
@@ -187,19 +189,19 @@ int main(int argc, char *argv[]){
 	//-----------------------------------------------------------------------------
 
 	#if defined DEBUG
-		printf("Generating prefixes\n");
+		printf("\nGenerating prefixes\n");
 	#endif
 	genPrefixes( B, CIPHER);							//Generate prefixes for the alphabet
 
 	//Output generated data
 	#if defined DEBUG
+		t = pb(B[0], m, 0);
 		printf( "\n\tB[0]:\t\t%s", t); mpz_out_str(stdout, 2, B[0]);
 		free(t);	t = pb(B[1], m, 0);
 		printf( "\n\tB[1]:\t\t%s", t);	mpz_out_str(stdout, 2, B[1]);
 		free(t);
 		printf( "\n\n" );
 	#endif
-
 
 	mpz_t tmp;		
 	mpz_init( tmp );									// Geneate tmp variable
@@ -227,7 +229,7 @@ int main(int argc, char *argv[]){
 		#endif
 
 		//lfsrgen( TEXT, deg, n, pol, i, 1, B );		// Generate undecimated bitseq TEXT for current initial state
-		lfsrgen( TEXT, deg, n, pol, i, 0, NULL );		// Generate undecimated bitseq TEXT for current initial state
+		lfsrgen( TEXT, deg, n, pol, i, 1, B );		// Generate undecimated bitseq TEXT for current initial state
 
 		#if defined DEBUG_SEARCH
 			free(t); t = pb(CIPHER,m,0);
@@ -288,7 +290,6 @@ int main(int argc, char *argv[]){
 		free(MATCH);
 	}
 
-
 	int u=0;
 	struct CANDIDATE* ptr = C;
 	struct CANDIDATE* endPtr = C + (sizeof(*C)/sizeof(struct CANDIDATE) * mpz_get_ui(max));
@@ -302,9 +303,11 @@ int main(int argc, char *argv[]){
 	}
 	//fclose( fh );												//Close data file
 
-	clock_t end = clock();										//Stop runtime timer
-	runtime += (double)(end - begin) / CLOCKS_PER_SEC;
-	//printf("\nRuntime: %f seconds", runtime);	
+	gettimeofday(&end, NULL);
+    long seconds = (end.tv_sec - start.tv_sec);
+    long micros = ((seconds * 1000000) + end.tv_usec) - (start.tv_usec);
+    printf("\nThe elapsed time is %ld seconds and %ld micros after R2 generation\n", seconds, micros);
+
 	printf("\nFound %"PRIu64" candidates\n", ct);
 	
 
@@ -345,7 +348,6 @@ int main(int argc, char *argv[]){
 	exit(0);
 }
 
-
 /**############################################################################
  **
  **	FUNCTIONS
@@ -356,7 +358,6 @@ int main(int argc, char *argv[]){
  *	returns a char pointer to an array filled with missing bits 
  * or nothing if it is already full.
 -----------------------------------------------------------------------------*/
-
 
 char* pb( mpz_t num, int len, int b ){
 	size_t plen = len+1 - mpz_sizeinbase( num, 2 );
@@ -462,7 +463,12 @@ mpz_t* genAlphabet( int ALPHASIZE ){
 	int i=0;
 	while( i < ALPHASIZE ){
 		mpz_init( B[i] );
+		//#if defined SHIFTOR
+		//mpz_set_ui( B[i], 1 );
+		//#else
 		mpz_set_ui( B[i], 0 );
+		//#endif
+
 		
 		#if defined DEBUG
 			printf("\tB[%d] ",i);
@@ -545,12 +551,12 @@ void lfsrgen(mpz_t rop, int psize, int olen, mpz_t p,
 		tmpOUT = lfsr_iterate(&lfsr);
 		if( initmatch == 0 && skip == 1) {			// Iterate until we match the first bit of the sequence
 
-			#if defined SHIFTOR
-			if( mpz_tstbit(B[tmpOUT], 0) == 0 ) {
-			//Set output to tmpvar
-			#else
+			// #if defined SHIFTOR
+			// if( mpz_tstbit(B[tmpOUT], 0) == 0 ) {
+			// //Set output to tmpvar
+			// #else
 			if( mpz_tstbit(B[tmpOUT], 0) == 1 ) {
-			#endif
+			//#endif
 				initmatch = 1;						//Set state to found
 				if( tmpOUT == 1 )
 					mpz_setbit(OUTPUT, i);			//Set output to tmpvar
@@ -640,17 +646,17 @@ void genPrefixes( mpz_t* B, mpz_t P ){
 	}
 
 	// Invert prefixes for Shift-OR mode
-	#if defined SHIFTOR
-		int i = 0;
-		mpz_t mask;
-		mpz_init(mask);
-		mpz_ui_pow_ui(mask, ALPHASIZE, m);
-		mpz_sub_ui(mask, mask, 1);
-		while( i<ALPHASIZE ){
-			mpz_xor( B[i], B[i], mask );
-			i++;
-		}
-	#endif
+	// #if defined SHIFTOR
+	// 	int i = 0;
+	// 	mpz_t mask;
+	// 	mpz_init(mask);
+	// 	mpz_ui_pow_ui(mask, ALPHASIZE, m);
+	// 	mpz_sub_ui(mask, mask, 1);
+	// 	while( i<ALPHASIZE ){
+	// 		mpz_xor( B[i], B[i], mask );
+	// 		i++;
+	// 	}
+	// #endif
 
 	mpz_clear( tmp );
 
@@ -675,11 +681,13 @@ mpz_t* genError(int K) {
 			i++;
 		}
 		#if defined SHIFTOR
-		mpz_t mask;
-		mpz_init(mask);
-		mpz_ui_pow_ui(mask, ALPHASIZE, m);
-		mpz_sub_ui(mask, mask, 1);
-		mpz_xor( R[k], R[k], mask );
+			mpz_t mask;
+			mpz_init(mask);
+			mpz_ui_pow_ui(mask, ALPHASIZE, m);
+			mpz_sub_ui(mask, mask, 1);
+			mpz_xor( R[k], R[k], mask );			
+			
+			//mpz_com(R[k], R[k]);
 		#endif
 
 		#if defined DEBUG_SEARCH
@@ -703,18 +711,30 @@ mpz_t* arbp_search(mpz_t* B, int K) {
 	mpz_init( tmp1 );									//Tmp variables
 	mpz_t tmp2;		
 	mpz_init( tmp2 );
-	mpz_t tmp3;		
+	mpz_t tmp3;
 	mpz_init( tmp3 );
+	char* t;
+	char* b;
 														//Match for each position in text
 	mpz_t* R = genError( K );							//Gen error-table
 	mpz_t* MATCHES = malloc( n * sizeof(mpz_t) );
 
+	#if defined CONSTRAINTS2
+		mpz_t* dm	= malloc( (K)*sizeof(mpz_t) );	// Initialize dm_i, i=1...k
+		mpz_t del;
+		mpz_init(del);
+		int d = 0;
+		while (d<K) {
+			mpz_init(dm[d]);
+			mpz_set(dm[d], R[0]); 						// Set all dm_i to 1^m
+			d++;
+		}
+		mpz_set(del, R[0]);
+	#endif
+
 	mpz_t oldR, newR;									//Create and init variables
 	mpz_init( oldR );
 	mpz_init( newR );
-
-	char* t;
-	char* b;
 
 	#if defined DEBUG_SEARCH
 		printf( "\nBeginning search\n");					//Debug
@@ -729,6 +749,7 @@ mpz_t* arbp_search(mpz_t* B, int K) {
 		#endif
 
 		int Ti	= mpz_tstbit( TEXT, pos );				//Grab current chars int value
+		int Tii = (Ti + 1) % 2;							// Trick to get the inverse value cheap
 
 		mpz_clear( oldR );	mpz_init( oldR );			//Reset variables
 		mpz_clear( newR );	mpz_init( newR );
@@ -738,17 +759,11 @@ mpz_t* arbp_search(mpz_t* B, int K) {
 
 		#if defined SHIFTOR
 			mpz_lshift( tmp1, m );						//lshift
-			//b = pb(tmp1,m,0); printf("\nLSHFT: \t%s", b); mpz_out_str(stdout, 2, tmp1);
-			mpz_ior( tmp1, tmp1, B[Ti] );				//OR with B[Ti]
-			//b = pb(tmp1,m,0); printf("\nORWB: \t%s", b); mpz_out_str(stdout, 2, tmp1);
-
+			mpz_ior( tmp1, tmp1, B[Tii] );				//OR with B[Ti]
 		#else
 			mpz_lshift( tmp1, m );						//lshift
-			//b = pb(tmp1,m,0); printf("\nLSHFT: \t%s", b); mpz_out_str(stdout, 2, tmp1);
 			mpz_setbit( tmp1, 0 );						//OR with 1
-			//b = pb(tmp1,m,0); printf("\nORW1: \t%s", b); mpz_out_str(stdout, 2, tmp1);
 			mpz_and( tmp1, tmp1, B[Ti] );				//AND with B[Ti]
-			//b = pb(tmp1,m,0); printf("\nANDWB: \t%s", b); mpz_out_str(stdout, 2, tmp1);
 		#endif
 
 
@@ -783,39 +798,85 @@ mpz_t* arbp_search(mpz_t* B, int K) {
 
 		uint_least64_t i = 1;								//Calc matches with K allowed errors
 		while( i < K ) {
-			mpz_clear( tmp1 );mpz_clear(tmp2); mpz_clear(tmp3);
-			mpz_init(tmp1);	mpz_init(tmp2);	mpz_init(tmp3);	//reset and initialise temp variables
+			mpz_clear( tmp1 );mpz_clear(tmp2);mpz_clear(tmp3);
+			mpz_init(tmp1);	mpz_init(tmp2);mpz_init(tmp3); //reset and initialise temp variables
 
 															//Substitute and deletion
 			#if defined SHIFTOR
-				mpz_set(tmp3, oldR);						//tmp3 = oldR
-				mpz_lshift(tmp3, m);						//tmp3 = <tmp3> << 1
-				mpz_ior(tmp2, tmp3, B[Ti]);
+				#if defined CONSTRAINTS2
+				// Deletion 
+				mpz_set(tmp2, oldR);
+				mpz_lshift(tmp2, m);
 
-				mpz_and(tmp2, tmp2, tmp3);
+				mpz_lshift(del, m);							
+				mpz_setbit(del,0);
+				mpz_com(tmp3, del); 							
+				
+				mpz_ior(tmp2, tmp2, tmp3);
+			
+				mpz_lshift(dm[i-1], m);
+				mpz_setbit(dm[i-1], 0);
+				mpz_com(tmp3, dm[i-1]);
 
-				#if defined INC_INSERT						//Insertion
-					mpz_and(tmp2, oldR, tmp2);					//tmp2 = oldR | <tmp2>
+				mpz_ior(tmp2, tmp2, tmp3);
+
+				mpz_setbit(tmp2, (m-1));
+
+				mpz_set(dm[i], del);
+				// Substitution
+				mpz_set(tmp1, oldR);						//tmp3 = oldR
+				mpz_lshift(tmp1, m);						//tmp3 = <tmp3> << 1
+				mpz_ior(tmp1, tmp1, B[Ti]);					// OR NOT B[]
+
+				mpz_set(oldR, R[i]);						//Store R[i] for next error
+
+				// Match
+				mpz_lshift(R[i], m);						
+				mpz_ior(R[i], R[i], B[Tii]);				
+
+				mpz_and(R[i], R[i], tmp1);
+				mpz_and(R[i], R[i], newR);					
+
+				mpz_set(newR, R[i]);						//newR = <tmp1>
+
+				#elif defined CONSTRAINTS1
+				// Deletion  
+				mpz_lshift(newR, m);
+
+				// Substitution
+				mpz_set(tmp1, oldR);						//tmp3 = oldR
+				mpz_lshift(tmp1, m);						//tmp3 = <tmp3> << 1
+				mpz_ior(tmp1, tmp1, B[Ti]);					// OR NOT B[]
+
+				mpz_set(oldR, R[i]);						//Store R[i] for next error
+
+				// Match
+				mpz_lshift(R[i], m);						
+				mpz_ior(R[i], R[i], B[Tii]);				
+
+				mpz_and(R[i], R[i], tmp1);
+				mpz_and(R[i], R[i], newR);					
+
+				mpz_set(newR, R[i]);						//newR = <tmp1>
+
+				#else
+				mpz_set(tmp1, oldR);
+				mpz_and(tmp1, tmp1, newR); //Del+Sub
+				mpz_lshift(tmp1, m);
+				mpz_set(oldR, R[i]);
+				mpz_lshift(R[i], m);
+				mpz_ior(R[i], R[i], B[Tii]); //Match
+				mpz_and(R[i], R[i], tmp1);
+				mpz_set(newR, R[i]);
+
 				#endif
 
-				mpz_set(tmp1, R[i]);						//Copy value
-				mpz_lshift(tmp1, m);						//tmp1 = R[i]<<1
-				mpz_ior(tmp1, tmp1, B[Ti]);					//tmp1 = <tmp1> & B[Ti]
-
-				mpz_and(tmp1, tmp1, tmp2);					//tmp1 = <tmp1> | <tmp2>
-
-				mpz_set(newR, tmp1);						//newR = <tmp1>
-				mpz_set(oldR, R[i]);						//Store R[i] for next error
-				mpz_set(R[i], newR);						//R[i] == R'[i]
 
 			#else											// Shift-AND
 				mpz_ior(tmp2, oldR, newR);					//tmp2 = (oldR|newR)
 				mpz_lshift(tmp2, m);						//tmp2 = <tmp2> << 1
-				mpz_setbit( tmp2, 0 );
 
-				#if defined INC_INSERT						//Insertion
-					mpz_ior(tmp2, oldR, tmp2);					//tmp2 = oldR | <tmp2>
-				#endif
+				mpz_setbit( tmp2, 0 );					
 
 				mpz_set(tmp1, R[i]);						//Copy value
 				mpz_lshift(tmp1, m);						//tmp1 = R[i]<<1
@@ -827,8 +888,6 @@ mpz_t* arbp_search(mpz_t* B, int K) {
 				mpz_set(oldR, R[i]);						//Store R[i] for next error
 				mpz_set(R[i], newR);						//R[i] == R'[i]
 			#endif
-
-
 			
 			#if defined (DEBUG_SEARCH) && defined (SHIFTOR)
 				if(mpz_tstbit(R[i], m-1) > 0){ 

@@ -1,15 +1,19 @@
 
 main: clean
-	gcc -DSHIFTOR -DINC_INSERT -o main main.c tpool.c -lgmp -lpthread
+	gcc -DSHIFTOR -o main main.c tpool.c -lgmp -lpthread
 
-no_insert: clean
-	gcc -DSHIFTOR -DDEBUG -o main main.c -lgmp
+
+and: clean
+	gcc -o main main.c tpool.c -lgmp -lpthread
+
+or2: clean
+	gcc -DSHIFTOR -DCONSTRAINTS1 -o main main.c tpool.c -lgmp -lpthread
+
+or3: clean
+	gcc -DSHIFTOR -DCONSTRAINTS2 -o main main.c tpool.c -lgmp -lpthread
 
 debug: clean
-	gcc -DSHIFTOR -DDEBUG -DDEBUG_SEARCH -DINC_INSERT -o main main.c -lgmp
-
-shiftand: clean
-	gcc -DINC_INSERT -o main_and main.c -lgmp
+	gcc -DSHIFTOR -DDEBUG -DDEBUG_SEARCH -DINC_INSERT -o main main.c tpool.c -lgmp -lpthread
 
 clean:
 	rm -f main *.lib

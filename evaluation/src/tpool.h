@@ -1,6 +1,3 @@
-// fetched from https://nachtimwald.com/2019/04/12/thread-pool-in-c/ 11.04.2021
-
-
 #ifndef __TPOOL_H__
 #define __TPOOL_H__
 
