@@ -29,7 +29,7 @@ func main() {
 		deg, _ := strconv.Atoi(strings.TrimSpace(ret_job[0]))
 		m, _ := strconv.Atoi( strings.TrimSpace(ret_job[1]))
 		n, _ := strconv.Atoi( strings.TrimSpace(ret_job[2]))
-		k, _ := strconv.Atoi( strings.TrimSpace(ret_job[3]))
+		k, _ := strconv.ParseFloat( strings.TrimSpace(ret_job[3]), 32)
 		stop_m, _ := strconv.Atoi( strings.TrimSpace(ret_job[4]))
 		r1, _ := strconv.Atoi( strings.TrimSpace(ret_job[5]))
 		r2, _ := strconv.Atoi( strings.TrimSpace(ret_job[6]))
