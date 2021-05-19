@@ -74,7 +74,8 @@ func main() {
 			n=2*m
 			bottom := 0
 			var resmap = make([]int, m-1)
-			i := m/k
+			var i int = int(float32(m)/float32(k))
+			fmt.Println(i)
 	
 			SeekErrors:
 				for true {
