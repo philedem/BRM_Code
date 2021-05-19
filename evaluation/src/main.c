@@ -528,6 +528,9 @@ int polyMap(int deg) {
 		case 16:
 			pol = 33262;
 			break;
+		case 20:
+			pol = 524564;
+			break;
 	}
 	return pol;
 }
