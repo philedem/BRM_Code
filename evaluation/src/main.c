@@ -85,6 +85,20 @@ void mpz_lshift( mpz_t, int );																	//Left shift bin seq by 1
 char* pb( mpz_t, int, int );																	//Print prepending zeros
 
 
+// CSV Parse function https://stackoverflow.com/questions/12911299/read-csv-file-in-c
+const char* getfield(char* line, int num)
+{
+    const char* tok;
+    for (tok = strtok(line, ",");
+            tok && *tok;
+            tok = strtok(NULL, ",\n"))
+    {
+        if (!--num)
+            return tok;
+    }
+    return NULL;
+}
+
 void match_R1(void *arg) {
 	struct CANDIDATE *cand = (struct CANDIDATE *)arg;
 	mpz_t LCLK;	mpz_init(LCLK);						//LFSR for dessimating
@@ -93,7 +107,7 @@ void match_R1(void *arg) {
 	mpz_init(CIPHER2);
 	int i = 0;
 	int c = 0;
-	while ( i<mpz_get_ui(max) && col <= col_acceptance && hit==0) { // Iterate through all R1States until a hit is found or collision acceptance exceeded
+	while ( i<mpz_get_ui(max) ) { //&& col <= col_acceptance && hit==0) { // Iterate through all R1States until a hit is found or collision acceptance exceeded
 		#if defined DEBUG
 			printf("Generating clocking LFSR (R1) output sequence: \n");
 		#endif
@@ -105,18 +119,14 @@ void match_R1(void *arg) {
 
 		genEncrypt(CIPHER2, LCLK, cand->X , PLAINTEXT, m);
 
-		// Improve matching algorithm.
 		if ( mpz_cmp(CIPHER, CIPHER2) == 0 ) { //mpz_get_ui( CIPHER2 ) == mpz_get_ui( CIPHER ) ) {			
 			if (cand->istate == R2STATE && i == R1STATE) { // CHEATING. However, in a real approach, the collision indicator will work as a counter and indicate if there are 1 or more hits.
 				printf("\t - ACTUAL INIT STATES FOUND for R1 init state %i and R2 init state %i\n", i, cand->istate);
-				//hit = 1;
-				//exit(0);
+				hit = 1;
 			} else {
 				printf("\t - COLLISION FOUND at R1 init state %i and R2 init state %i\n", i, cand->istate);
 				//run function to terminate all match_R1 instances.
 				col ++;
-				//cand->collisions++;
-				//tpool_destroy(tm);
 			}
 		}
 		i++;
@@ -124,11 +134,9 @@ void match_R1(void *arg) {
 
 	mpz_clear(LCLK);
 	mpz_clear(CIPHER2);
-
 }
 
 void search_thread(void *arg) {
-
   	struct CANDIDATE *cand = (struct CANDIDATE *)arg;
 	mpz_t TEXT; 																// This variable stores the current search text
 	mpz_init(TEXT);
@@ -157,7 +165,6 @@ void search_thread(void *arg) {
 		mpz_init(cand->X); mpz_set(cand->X, TEXT);			
 	}
 	free(MATCH);
-	//pthread_exit(NULL);
 }
 
 //-----------------------------------------------------------------------------
@@ -168,38 +175,50 @@ int main(int argc, char *argv[]){
 	//------------------------------------------------------------
 	// Parameter initialization and validation
 	//------------------------------------------------------------
-	if( argc != 9 ){	      							//Check that required input parameters are met
-		printf("Incorrect number of arguments\nUsage: ./main <polynomial degree> <search word length> <search text length> <errors> <init state R1> <init state R2> <collision acceptance> <# CPUs>\n");
-		return 1;
-	}
+	#if defined READCAND // Change argument requirements when reading file. These should in the future be changed to parse from filename instead
+		if( argc != 9 ){	      							//Check that required input parameters are met
+			printf("Incorrect number of arguments\nUsage: ./main <polynomial degree> <search word length> <search text length> <init state R1> <init state R2> <collision acceptance> <# CPUs> <.cand path>\n");
+			return 1;
+		}
+		deg = atoi( argv[1] );
+		m = atoi( argv[2] );
+		n = atoi( argv[3] );
+		slen = 0; // Doesn't matter, as we are not doing ARBP
+		R1STATE = atoi( argv[4] );
+		R2STATE = atoi( argv[5] );
+		col_acceptance = atoi( argv[6] );
+		num_threads = atoi( argv[7] );
+		char* candfile = argv[8];
+	#else
+		if( argc != 9 ){	      							//Check that required input parameters are met
+			printf("Incorrect number of arguments\nUsage: ./main <polynomial degree> <search word length> <search text length> <errors> <init state R1> <init state R2> <collision acceptance> <# CPUs>\n");
+			return 1;
+		}
+		deg = atoi( argv[1] );
+		m = atoi( argv[2] );
+		n = atoi( argv[3] );
+		slen = atoi( argv[4] )+1;
+		R1STATE = atoi( argv[5] );
+		R2STATE = atoi( argv[6] );
+		col_acceptance = atoi( argv[7] );
+		num_threads = atoi( argv[8] );
+	#endif
 
 	struct stat st = {0}; 
 	if (stat("./data", &st) == -1) { 					// Create ./data directory if it does not exist.
 		mkdir("./data", 0777);
 	}
 
-	deg = atoi( argv[1] );
-	m = atoi( argv[2] );
-	n = atoi( argv[3] );
-	slen = atoi( argv[4] )+1;
-	R1STATE = atoi( argv[5] );
-	R2STATE = atoi( argv[6] );
-	col_acceptance = atoi( argv[7] );
-	num_threads = atoi( argv[8] );
 	if (n<2*m) {
 		printf("Search text must be at least 2 * m...\n");
 		return 1;
 	}
-	//n = 2*m;											//Search text length 2m
 
 	if (slen >= m) {
 		printf("Error: Errors cannot be higher than search word (m)...\n");
 		return 1;
 	}
 
-	struct timeval start, end;
-	gettimeofday(&start, NULL);
-		
 	mpz_init( pol );
 	mpz_set_ui(pol, polyMap(deg));
 
@@ -229,12 +248,6 @@ int main(int argc, char *argv[]){
 	mpz_clear( R1SEQ );									//Cleanup LFSRs
 	mpz_clear( R2SEQ );
 
-	//printf("Testing Pol.deg = %d, R1 = %d, R2 = %d, m = %d, k = %d...m-1, CPUs=%zu\n", deg, R1STATE, R2STATE, m, slen, num_threads);
-
-	int r;
-	//while (true) {
-
-
 	//-----------------------------------------------------------------------------
 	// At this point, the target (CIPHER) has been created. 
 	// The known-plaintext attack starts here.
@@ -242,106 +255,126 @@ int main(int argc, char *argv[]){
 	// Step ONE: Generate prefixes and run ARBP search and choose candidates for R2
 	// Candidates are stored in an array in memory in the form:
 	// <initial state>, <R2 undecimated output sequence of length n>
+	//
+	// UNLESS: READCAND was defined when compiling, changing the modus of the
+	// program into clock sequence reconstruction only.
 	//-----------------------------------------------------------------------------
-	char* FNAME;
-	int found;
 
-	B	= genAlphabet( ALPHASIZE );				//Generate alphabet
-	genPrefixes(B, CIPHER, m);							//Generate prefixes for the alphabet
-
-	//tpool_t *tm;
 	tm   = tpool_create(num_threads);
-
-
-	#if defined READCAND // If we expect to read an already generated .cand-file from previous generation
-	printf("Expecting to read a file... \n");
-	
-	#else
-	struct CANDIDATE* C = malloc( mpz_get_ui(max) * sizeof(struct CANDIDATE) );
-
-	for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
-		C[i].istate = i+1;
-		tpool_add_work(tm, search_thread, &C[i]);
-
-	}
-	tpool_wait(tm);
-	tpool_destroy(tm);
-
-	int u=0;
-
+	struct CANDIDATE* C = malloc( mpz_get_ui(max) * sizeof(struct CANDIDATE) );		// Initialize candidate array
 	struct CANDIDATE* ptr = C;
 	struct CANDIDATE* endPtr = C + (sizeof(*C)/sizeof(struct CANDIDATE) * mpz_get_ui(max));
 
-	// Open file for writing. May need to be moved back up if position of edits are to be written
-	FNAME = malloc(60*sizeof(char));					//Filename allocation
-	sprintf(FNAME, "./data/%d_%d_%d_%d_%d_%d.cand", deg, m, n, slen-1, R1STATE, R2STATE);
-	FILE* fh = fopen(FNAME, "w");						// Open output file for writing
-
-	while ( ptr < endPtr ) { // Iterate through all candidates
-		if (ptr->match == true){
-			fprintf(fh, "\n%i,", ptr->istate); mpz_out_str(fh, 62, ptr->X);
-			if (ptr->istate == R2STATE) {
-				found = 1;
-				fprintf(fh, "%s", "[!]");
-			}
-
-			u++;
+	#if defined READCAND // If we expect to read an already generated .cand-file from previous generation
+		printf("Reading file... \n");
+		FILE* stream = fopen(candfile, "r");
+		int l;
+		char line[1024];
+		while (fgets(line, 1024, stream)) // iterate through all lines in .cand file
+		{
+			char* tmp = strdup(line);
+			l = atoi(getfield(tmp, 1));
+			char* tmp2 = strdup(line);
+			//const char* X = getfield(tmp2, 2);
+			//printf("%d,%s\n", l, X);
+			C[l].istate = l;
+			mpz_set_str(C[l].X, getfield(tmp2, 2), 62);
 		}
-		ptr++;
-	}
-
-	fclose( fh );												//Close data file
-
-	if ( u == 0 ) { // Zero matches, empty dataset
-		remove(FNAME);
-		printf("%d,%d",-1,u);
-
-		return -1;
-	} else if( u >= mpz_get_ui(max)-1 ) {	 // Full dataset, all candidates
-		//remove(FNAME);
-		printf("%d,%d",-2,u);
-
-		return -2;
-	} else if ( found != 1 ) { // Dataset not containing the actual candidate (cheat)
-		remove(FNAME);
-		printf("%d,%d",u,u);
-
-		return u;
-	} else  { // Dataset is VALID!
-		// R1 reconstruction
-		// Start brute force attack with intercepted CIPHER and known PLAINTEXT with the generated 
-
+		// Start brute force attack
+		struct timeval start, end;
+		gettimeofday(&start, NULL);
 		tm   = tpool_create(num_threads);
 		col = 0;											// Reset collision counter
 		for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R1
-			C[i].istate = i+1;
+			C[i].istate = i;
 			tpool_add_work(tm, match_R1, &C[i]);			// Launch brute-force threads
 		}
 		tpool_wait(tm);
 		tpool_destroy(tm);
-
-		if (col > 0) {
-			printf("%d,%d",-3,u);
-			return -3;
+		// Attack done, summarize.
+		if (hit > 0) {
+			printf("Found %d ACTUAL hits (by cheating) and %d collisions.", hit, col);
 		} else {
-			printf("%d,%d",0,u);
+			printf("No hits found...");
 		}
-		// struct CANDIDATE* ptr = C;
-		// while ( ptr < endPtr ) { // Iterate through all candidates
-		// 	if ( ptr->collisions > 0 ){
-				
-		// 		return -3;
-		// 	}
-		// 	ptr++;
-		// }
+		gettimeofday(&end, NULL);
+		long seconds = (end.tv_sec - start.tv_sec);
+		long micros = ((seconds * 1000000) + end.tv_usec) - (start.tv_usec);
+		printf("\nThe elapsed time is %ld seconds and %ld micros after R1 reconstruction\n", seconds, micros);
+	#else // Normal mode of operation
+		char* FNAME;
+		int found;
 
-		return 0;
-	}	
+		B	= genAlphabet( ALPHASIZE );				//Generate alphabet
+		genPrefixes(B, CIPHER, m);					//Generate prefixes for the alphabet
+
+		for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R2
+			C[i].istate = i+1;
+			tpool_add_work(tm, search_thread, &C[i]);
+		}
+		tpool_wait(tm);
+		tpool_destroy(tm);
+
+		int u=0;
+
+		// Open file for writing. May need to be moved back up if position of edits are to be written
+		FNAME = malloc(60*sizeof(char));					//Filename allocation
+		sprintf(FNAME, "./data/%d_%d_%d_%d_%d_%d.cand", deg, m, n, slen-1, R1STATE, R2STATE);
+		FILE* fh = fopen(FNAME, "w");						// Open output file for writing
+
+		while ( ptr < endPtr ) { // Iterate through all candidates
+			if (ptr->match == true){
+				fprintf(fh, "\n%i,", ptr->istate); mpz_out_str(fh, 62, ptr->X);
+				if (ptr->istate == R2STATE) {
+					found = 1;
+				}
+				u++;
+			}
+			ptr++;
+		}
+
+		fclose( fh );												//Close data file
+		if ( u == 0 ) { // Zero matches, empty dataset
+			remove(FNAME);
+			printf("%d,%d",-1,u);
+
+			return -1;
+		} else if( u >= mpz_get_ui(max)-1 ) {	 // Full dataset, all candidates
+			remove(FNAME);
+			printf("%d,%d",-2,u);
+
+			return -2;
+		} else if ( found != 1 ) { // Dataset not containing the actual candidate (cheat)
+			remove(FNAME);
+			printf("%d,%d",u,u);
+
+			return u;
+		} else {
+			// Dataset is VALID!
+			// R1 reconstruction phase
+			// Start brute force attack with intercepted CIPHER and known PLAINTEXT with the generated R2 candidate set
+			tm   = tpool_create(num_threads);
+			col = 0;											// Reset collision counter
+			for (int i = 0; i < (mpz_get_ui(max)-1); i++){		// Iterate through all initial states of R1
+				C[i].istate = i+1;
+				tpool_add_work(tm, match_R1, &C[i]);			// Launch brute-force threads
+			}
+			tpool_wait(tm);
+			tpool_destroy(tm);
+
+			if (col > 0) {
+				printf("%d,%d",-3,u);
+				return -3;
+			} else {
+				printf("%d,%d",0,u);
+			}
+
+			return 0;
+		}	
 	#endif
 
-	exit(r);
+	exit(0);
 
-	return 0;
 }
 
 /**############################################################################
