@@ -100,6 +100,8 @@ const char* getfield(char* line, int num)
 }
 
 void match_R1(void *arg) {
+
+
 	struct CANDIDATE *cand = (struct CANDIDATE *)arg;
 	mpz_t LCLK;	mpz_init(LCLK);						//LFSR for dessimating
 	mpz_t CIPHER2;	mpz_init( CIPHER2 );			//Gen test ciphertext
@@ -107,12 +109,15 @@ void match_R1(void *arg) {
 	mpz_init(CIPHER2);
 	int i = 0;
 	int c = 0;
+
 	while ( i<mpz_get_ui(max) ) { //&& col <= col_acceptance && hit==0) { // Iterate through all R1States until a hit is found or collision acceptance exceeded
+		struct timeval start, end;
+		gettimeofday(&start, NULL);	
 		#if defined DEBUG
 			printf("Generating clocking LFSR (R1) output sequence: \n");
 		#endif
 		lfsrgen(LCLK, deg, m, pol, i, 0, NULL);				//Clocking LFSR
-		
+
 		#if defined DEBUG
 			printf("Calculating the Decimated bitsequence and creating ciphertext:\n\n");
 		#endif
@@ -129,9 +134,14 @@ void match_R1(void *arg) {
 				col ++;
 			}
 		}
+		gettimeofday(&end, NULL);
+		long seconds = (end.tv_sec - start.tv_sec);
+		long micros = ((seconds * 1000000) + end.tv_usec) - (start.tv_usec);
+		printf("%ld\n",  micros);
 		i++;
 	}
 
+	
 	mpz_clear(LCLK);
 	mpz_clear(CIPHER2);
 }
