@@ -11,7 +11,6 @@ import (
 	"os"
 	"io"
 	"runtime"
-	//"io/ioutil"
 	"encoding/csv"
 )
 
@@ -35,8 +34,6 @@ func main() {
 		r2, _ := strconv.Atoi( strings.TrimSpace(ret_job[6]))
 		col_accept, _ := strconv.Atoi( strings.TrimSpace(ret_job[7]))
 		mode := strings.TrimSpace(ret_job[8])
-		fmt.Println(mode)
-		
 		
 		make_cmd := exec.Command("make")
 
@@ -70,12 +67,11 @@ func main() {
 			continue
 		} 
 
-		for m < stop_m {
+		for m <= stop_m {
 			n=2*m
 			bottom := 0
 			var resmap = make([]int, m-1)
 			var i int = int(float32(m)/float32(k))
-			fmt.Println(i)
 	
 			SeekErrors:
 				for true {
@@ -130,8 +126,6 @@ func main() {
 					}
 	
 				}
-	
-			
 			m=m+20
 		}
 	}
@@ -151,7 +145,7 @@ func writeLog(fname string, logline string) {
 
 }
 
-func getJob(jobfile string) []string { //([string, string, string, string, string, string, string, string]){ // deg, m, n, k_factor, stop, r1, r2, col_accept 
+func getJob(jobfile string) []string {  
 	csvfile, err := os.Open(jobfile)
 	if err != nil {
 		log.Fatalln("Couldn't open the csv file", err)
@@ -161,7 +155,7 @@ func getJob(jobfile string) []string { //([string, string, string, string, strin
 	r := csv.NewReader(csvfile)
 	i := 0
 	
-	ret_job, _ := r.Read()	
+	ret_job, err := r.Read()	
 	if err == io.EOF {
 		fmt.Printf("No more jobs, shutting down...\n")
 		os.Exit(0)		

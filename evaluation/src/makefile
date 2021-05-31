@@ -14,9 +14,11 @@ or3: clean
 read: clean
 	gcc -DREADCAND -o main main.c tpool.c -lgmp -lpthread
 
+demo: clean
+	gcc -DSHIFTOR -DCONSTRAINTS2 -DDEMO -o main main.c tpool.c -lgmp -lpthread
 
 debug: clean
-	gcc -DSHIFTOR -DDEBUG -DDEBUG_SEARCH -DINC_INSERT -o main main.c tpool.c -lgmp -lpthread
+	gcc -DSHIFTOR -DDEBUG -o main main.c tpool.c -lgmp -lpthread
 
 clean:
 	rm -f main *.lib
